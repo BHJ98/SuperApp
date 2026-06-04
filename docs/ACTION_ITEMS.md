@@ -23,6 +23,17 @@ calling the project done.
   `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` as Vercel project env vars.
   Never put the service_role key or the Google client secret in either place.
 
+## Bugs found while porting (your call)
+
+- [ ] **Boodschappen ingredient scaling: fraction/range amounts don't scale
+  properly.** In `src/apps/groceries/lib/ingredients.ts`, `scaleAmount`'s
+  fraction (`"1/2"`) and range (`"2-3"`) branches are dead code because
+  `parseFloat("1/2") === 1` makes the number branch fire first. So `"1/2"`
+  doubled becomes `"2"` (not `"1"`), and `"2-3"` doubled becomes `"4"` (not
+  `"4-6"`). This is inherited from the original app. Pinned as-is in
+  `ingredients.test.ts`. Fix only if you want the (intended) behaviour — it's a
+  behaviour change from what the original Boodschappen shipped.
+
 ## Migration / cleanup (from KICKOFF.md)
 
 - [ ] Verify Bakjesmethode's localStorage/local data was actually captured in
