@@ -34,6 +34,29 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split vendor code so the shell loads a small core and big libs are
+        // cached independently. Per-app code is already lazy-loaded via routes.
+        // Only peel off libraries the shell always needs. Everything else
+        // (firebase, recharts, ...) is left to Rollup's automatic splitting so
+        // it stays inside the lazy per-app chunk that imports it.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("@supabase")) return "supabase";
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/") ||
+            id.includes("react-router")
+          )
+            return "react";
+          return undefined;
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "node",
