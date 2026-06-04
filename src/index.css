@@ -1,9 +1,24 @@
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: dark;
+}
+
+/* Boodschappen module owns its own (dark) palette + fonts, scoped so it
+   doesn't restyle the rest of the shell. Mirrors the upstream .dark theme. */
+.groceries-app {
+  --bg: #0d1a0f;
+  --surface: #132015;
+  --raised: #192b1b;
+  --ink: #ede8d8;
+  --muted: #7a9a7a;
+  --border: #253a27;
+  --gold: #c9a84c;
+  --font-bebas: "Bebas Neue";
+  --font-dm-sans: "DM Sans";
 }
 
 html,
