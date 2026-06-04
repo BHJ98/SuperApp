@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#08080d"/>
+  <defs>
+    <radialGradient id="mg" cx="38%" cy="32%" r="60%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="55%" stop-color="#6d28d9"/>
+      <stop offset="100%" stop-color="#3b0764"/>
+    </radialGradient>
+    <radialGradient id="shine" cx="30%" cy="28%" r="40%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+  </defs>
+  <!-- Bag body -->
+  <path d="M256 130 C218 130 188 148 170 176 C146 172 130 188 133 210 C112 220 100 242 100 268 Q97 388 256 394 Q415 388 412 268 C412 242 400 220 379 210 C382 188 366 172 342 176 C324 148 294 130 256 130 Z" fill="#0f0a1e" stroke="#2a1a4e" stroke-width="3"/>
+  <!-- Marble inside bag -->
+  <circle cx="256" cy="285" r="72" fill="url(#mg)"/>
+  <circle cx="256" cy="285" r="72" fill="url(#shine)"/>
+  <!-- Title text -->
+  <text x="256" y="430" text-anchor="middle" fill="#e8d5a3" font-family="Georgia, serif" font-size="52" font-weight="700" letter-spacing="2">THE BAG</text>
+</svg>
