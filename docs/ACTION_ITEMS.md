@@ -5,6 +5,13 @@ calling the project done.
 
 ## Security
 
+- [ ] **Rotate the Supabase personal access token** (the `sbp_…` one starting
+  with `sbp_9954…`). It was pasted into chat while we were testing whether the
+  cloud environment could reach `api.supabase.com` directly (it can't — host
+  not in allowlist), so the token is effectively burned. Revoke + regenerate
+  at https://supabase.com/dashboard/account/tokens once we decide whether
+  we're using the MCP path at all.
+
 - [ ] **Rotate the Google OAuth client secret.** The current secret for the
   shared Bakjes OAuth client (ID `615104272993-e9l0evjakimkr5ocnjo0gotukb89g8dk`)
   was exposed in a chat transcript during setup. After login is confirmed
