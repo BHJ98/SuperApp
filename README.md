@@ -25,8 +25,8 @@ src/
   apps/
     workout/      ported from WorkoutTracker (IndexedDB or Supabase backend)
     groceries/    ported from Boodschappen (Supabase `boodschappen` schema)
-    finance/      placeholder — port pending (task 5)
-    bakjes/       placeholder — port pending (task 6)
+    finance/      placeholder — see docs/FINANCE_PLAN.md
+    bakjes/       ported from Bakjesmethode (Supabase `bakjes` schema, ICS upload)
     marblebag/    ported; unlisted + password-gated; Firebase backend
 ```
 
@@ -67,3 +67,4 @@ under Settings → API → Exposed schemas:
 1. `migration/supabase_auth_setup.sql` — allow-list, profiles, signup gate, RLS.
 2. `migration/workout_schema.sql` — `workout` schema (expose `workout`).
 3. `migration/boodschappen_schema.sql` — `boodschappen` schema (expose `boodschappen`).
+4. `migration/bakjes_schema.sql` — `bakjes` schema (expose `bakjes`).

@@ -7,6 +7,16 @@
   color-scheme: dark;
 }
 
+/* Bakjes module palette, scoped so its CSS-variable styling (border, accent,
+   card backgrounds) doesn't leak into the rest of the shell. */
+.bakjes-app {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --ink: #e2e8f0;
+  --border: #334155;
+  --accent: #3b82f6;
+}
+
 /* Boodschappen module owns its own (dark) palette + fonts, scoped so it
    doesn't restyle the rest of the shell. Mirrors the upstream .dark theme. */
 .groceries-app {

@@ -20,10 +20,23 @@ Living progress log. Update as we move through KICKOFF.md tasks.
 - **Boodschappen port** (task 5, frontend) — `src/apps/groceries/`: recipes,
   week planner, shopping list. Wired to the shared session + a `boodschappen`
   schema. Recipe-URL extraction runs via `api/extract.ts` (Vercel function).
+- **Bakjes port** (task 6, frontend) — `src/apps/bakjes/`: Dashboard, Bakjes,
+  Regels, Inventariseren, Instellingen. Persisted as one JSONB row per user
+  in the `bakjes` schema (mirrors the original AppData blob — your backup
+  JSON imports as-is via Instellingen → "Upload backup"). Calendar events
+  stay in IndexedDB (regenerable from ICS). **Dropped this round:** Google
+  Drive sync (Supabase replaces it) and Google Calendar API live sync (use
+  the ICS upload path instead). The Bakjes-specific OAuth flow is gone —
+  login is the shell's regular Supabase session.
+- **Finance plan** — `docs/FINANCE_PLAN.md`. Decisions needed from you on
+  Phase 4 (identity bridging) and Phase 5 (cutover window) before I touch any
+  Finance data. The plan is "review and push back," not "go execute."
 
-Build is green; `npm run lint` and the 11 vitest tests pass; dev server boots
-and every app module transforms cleanly. Vendor split: react + supabase load
-eagerly (~108 KB gz total); each app is a lazy chunk.
+Build is green; `npm run lint` and **57 vitest tests pass** (workout
+progression engine + Boodschappen scaling + Bakjes percentages/targets/
+rules/CSV export/ical expand/backup roundtrip); dev server boots and every
+app module transforms cleanly. Vendor split: react + supabase load eagerly
+(~108 KB gz total); each app is a lazy chunk.
 
 ## Needs YOU before the new code goes live (do these tomorrow)
 
@@ -32,6 +45,10 @@ under **Settings → API → Exposed schemas**:
 
 1. `migration/workout_schema.sql` → then expose **`workout`**.
 2. `migration/boodschappen_schema.sql` → then expose **`boodschappen`**.
+3. `migration/bakjes_schema.sql` → then expose **`bakjes`**.
+
+Then in SuperApp → `/bakjes/instellingen` → **Upload backup**, drop in your
+Bakjesmethode backup JSON. It restores into `bakjes.app_data` as one row.
 
 In **Vercel** (super-app project → Settings → Environment Variables):
 
@@ -55,14 +72,9 @@ at the branch to test first.
 
 ## Pending ⏳
 
-- **Task 5 — Finance frontend.** NOT started. This is the sensitive one (real
-  data, 9 migrations, currently-live PersonalFinance1 app). Needs a real plan
-  with you before touching: it requires moving Finance's `public` tables into a
-  `finance` schema as one coordinated cut (the standalone app breaks until the
-  port points at the new schema), with row-count verification. Do this last.
-- **Task 6 — Bakjes.** Its data is in localhost (localStorage/IndexedDB); needs
-  a one-shot importer you run in your browser, then a frontend port. marblebag
-  (the other half of task 6) is already done.
+- **Task 5 — Finance frontend.** Plan written in `docs/FINANCE_PLAN.md`. NOT
+  started — needs your sign-off on Phase 4 (identity bridging) and Phase 5
+  (cutover window) first.
 - **Task 7 — Decommission the second Supabase project (Boodschappen), confirm
   final row counts, install the PWA on both phones.**
 
