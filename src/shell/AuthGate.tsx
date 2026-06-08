@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { AuthContext } from "@/lib/auth";
 
 interface AuthGateProps {
   children: ReactNode;
@@ -9,9 +10,8 @@ interface AuthGateProps {
 type GateState =
   | { kind: "loading" }
   | { kind: "passthrough" }
-  | { kind: "signedOut" }
-  | { kind: "signedIn"; session: Session }
-  | { kind: "denied"; email: string };
+  | { kind: "signedOut"; oauthError?: string }
+  | { kind: "signedIn"; session: Session };
 
 export function AuthGate({ children }: AuthGateProps) {
   const [state, setState] = useState<GateState>(
@@ -22,13 +22,19 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!supabase) return;
     let active = true;
 
+    // OAuth redirect with an error in the hash means Supabase rejected the
+    // sign-in (almost always the Before-User-Created hook denying a
+    // non-allow-listed email). Capture it and clear the URL.
+    const oauthError = readOauthErrorFromHash();
+    if (oauthError) history.replaceState(null, "", window.location.pathname);
+
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      setState(resolve(data.session));
+      setState(resolve(data.session, oauthError));
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState(resolve(session));
+      setState(resolve(session, oauthError));
     });
 
     return () => {
@@ -39,24 +45,35 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (state.kind === "passthrough") {
     return (
-      <>
+      <AuthContext.Provider value={{ user: null }}>
         <DevBanner />
         {children}
-      </>
+      </AuthContext.Provider>
     );
   }
   if (state.kind === "loading") return <CenteredMessage>Loading…</CenteredMessage>;
-  if (state.kind === "signedOut") return <SignIn />;
-  if (state.kind === "denied") return <Denied email={state.email} />;
-  return <>{children}</>;
+  if (state.kind === "signedOut") {
+    return state.oauthError ? <Denied reason={state.oauthError} /> : <SignIn />;
+  }
+  return (
+    <AuthContext.Provider value={{ user: state.session.user }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-// Allow-list check happens server-side via Supabase Before-User-Created hook +
-// RLS keyed to allowed_emails (task 2). Until that hook is wired, we let any
-// signed-in account through — the client cannot be trusted to gate access.
-function resolve(session: Session | null): GateState {
-  if (!session) return { kind: "signedOut" };
+function resolve(session: Session | null, oauthError: string | undefined): GateState {
+  if (!session) return { kind: "signedOut", oauthError };
   return { kind: "signedIn", session };
+}
+
+function readOauthErrorFromHash(): string | undefined {
+  if (!window.location.hash) return undefined;
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const description = params.get("error_description");
+  const code = params.get("error");
+  if (!description && !code) return undefined;
+  return decodeURIComponent(description ?? code ?? "");
 }
 
 function SignIn() {
@@ -80,18 +97,18 @@ function SignIn() {
   );
 }
 
-function Denied({ email }: { email: string }) {
-  const onSignOut = () => supabase?.auth.signOut();
+function Denied({ reason }: { reason: string }) {
+  const onTryAgain = () => supabase?.auth.signOut().then(() => window.location.reload());
   return (
     <CenteredMessage>
-      <div className="text-center">
+      <div className="text-center max-w-sm">
         <h1 className="mb-2 text-2xl font-bold">No access</h1>
-        <p className="mb-1 text-slate-400">{email}</p>
-        <p className="mb-6 text-slate-500 text-sm">
+        <p className="mb-1 text-slate-400">{reason}</p>
+        <p className="mb-6 text-xs text-slate-500">
           This account isn't on the allow-list.
         </p>
-        <button onClick={onSignOut} className="btn-ghost">
-          Sign out
+        <button onClick={onTryAgain} className="btn-ghost">
+          Try a different account
         </button>
       </div>
     </CenteredMessage>

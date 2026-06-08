@@ -1,4 +1,5 @@
 import { useState } from "react";
+import TheBag from "./TheBag.jsx";
 
 const expected = import.meta.env.VITE_MARBLEBAG_PASSWORD ?? "";
 const STORAGE_KEY = "marblebag.unlocked";
@@ -44,12 +45,11 @@ export default function Marblebag() {
     );
   }
 
+  // TheBag is a full-screen, inline-styled experience with its own theming.
+  // Break it out of the shell's centered container so it owns the viewport.
   return (
-    <div className="card">
-      <h2 className="text-lg font-semibold">Marblebag</h2>
-      <p className="mt-1 text-sm text-slate-400">
-        Ported from BHJ98/marblebag in task 6.
-      </p>
+    <div className="-mx-4 -mt-4">
+      <TheBag />
     </div>
   );
 }
