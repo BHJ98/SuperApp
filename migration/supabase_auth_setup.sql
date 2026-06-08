@@ -77,9 +77,14 @@ grant usage on schema public to supabase_auth_admin;
 grant select on public.allowed_emails to supabase_auth_admin;
 
 -- 5. Reusable RLS predicate: is the current request from an allow-listed email?
+--    SECURITY DEFINER + fixed search_path so it bypasses RLS when reading
+--    allowed_emails (otherwise the policy on allowed_emails would recursively
+--    call is_allowed() and every gated query would block forever).
 create or replace function public.is_allowed()
 returns boolean
 language sql stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1 from public.allowed_emails ae
