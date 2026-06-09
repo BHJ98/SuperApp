@@ -56,7 +56,7 @@ sign-in and an allow-listed email.
 | `VITE_SUPABASE_URL` | Vercel + env | Supabase project URL (public) |
 | `VITE_SUPABASE_ANON_KEY` | Vercel + env | Supabase anon key (public) |
 | `VITE_WORKOUT_CLOUD` | optional | `1` to use the Supabase workout backend instead of IndexedDB (requires the `workout` schema) |
-| `VITE_MARBLEBAG_PASSWORD` | optional | soft password for the marblebag gate |
+| `VITE_GOOGLE_CLIENT_ID` | optional | Google OAuth client ID for Bakjes' Calendar live sync (same ID Supabase Google auth uses) |
 | `ANTHROPIC_API_KEY` | Vercel only (server) | used by `api/extract.ts`; never exposed to the client |
 
 ## Database setup
