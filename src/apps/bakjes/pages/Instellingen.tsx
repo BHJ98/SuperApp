@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppData } from "../providers";
 import { parseIcs } from "../lib/ical/parse";
 import { expandEvents } from "../lib/ical/expand";
@@ -9,12 +9,78 @@ import {
   leesBackupJson,
   samenvatBackup,
 } from "../lib/storage/backup";
+import {
+  initClient,
+  openPopup,
+  loadToken,
+  signOut as googleSignOut,
+  fetchCalendarEvents,
+} from "../lib/auth/google";
+
+const CALENDAR_AVAILABLE = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
 export default function InstellingenPage() {
   const { data, ready, mutate, replaceAll, syncStatus } = useAppData();
   const [status, setStatus] = useState<string>("");
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hasCalendarToken, setHasCalendarToken] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!CALENDAR_AVAILABLE) return;
+    setHasCalendarToken(!!loadToken());
+    // Warm up the GIS client so the popup can fire synchronously from a click.
+    initClient().catch(() => {});
+  }, []);
+
+  function connectCalendar() {
+    setBusy(true);
+    setStatus("");
+    // openPopup must be called synchronously from the click handler — no await.
+    openPopup("consent")
+      .then(async () => {
+        setHasCalendarToken(true);
+        setStatus("Verbonden met Google Calendar.");
+        await syncCalendar();
+      })
+      .catch((err: Error) => setStatus(`Login mislukt: ${err.message}`))
+      .finally(() => setBusy(false));
+  }
+
+  function disconnectCalendar() {
+    googleSignOut();
+    setHasCalendarToken(false);
+    setStatus("Calendar losgekoppeld. Lokale events blijven bewaard.");
+  }
+
+  async function syncCalendar() {
+    if (!hasCalendarToken && !loadToken()) {
+      setStatus("Niet verbonden met Calendar. Klik eerst 'Verbind'.");
+      return;
+    }
+    try {
+      setBusy(true);
+      setStatus("Bezig met synchroniseren van Calendar…");
+      const now = Date.now();
+      const start = new Date(now - 26 * 7 * 24 * 3600 * 1000);
+      const end = new Date(now + 4 * 7 * 24 * 3600 * 1000);
+      const events = await fetchCalendarEvents(
+        start.toISOString(),
+        end.toISOString(),
+      );
+      await saveEvents(events, true);
+      setEventCount(events.length);
+      setLastSyncAt(new Date().toLocaleTimeString("nl-NL"));
+      setStatus(
+        `${events.length} events gesynchroniseerd uit Google Calendar.`,
+      );
+    } catch (err) {
+      setStatus(`Calendar sync mislukt: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function ontvangIcs(file: File) {
     try {
@@ -174,6 +240,63 @@ export default function InstellingenPage() {
           onOpslaan={werkurenOpslaan}
           disabled={!ready}
         />
+      </section>
+
+      <section className="card p-5 space-y-3">
+        <h2 className="text-lg font-medium">Google Calendar (live sync)</h2>
+        {CALENDAR_AVAILABLE ? (
+          <>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Direct uit Google Calendar synchroniseren — geen ICS-export nodig.
+              Vraagt eenmalig toestemming (alleen-lezen, alleen jouw primaire
+              calendar). De token leeft ongeveer een uur; klik daarna opnieuw
+              'Synchroniseer'.
+            </p>
+            <div className="flex flex-wrap gap-2 items-center">
+              {hasCalendarToken ? (
+                <>
+                  <span className="inline-flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />{" "}
+                    Verbonden
+                  </span>
+                  <button
+                    onClick={syncCalendar}
+                    disabled={busy}
+                    className="px-3 py-1.5 rounded bg-[var(--accent)] text-white text-sm disabled:opacity-60"
+                  >
+                    Synchroniseer
+                  </button>
+                  <button
+                    onClick={disconnectCalendar}
+                    disabled={busy}
+                    className="px-3 py-1.5 rounded border border-[var(--border)] text-sm disabled:opacity-60"
+                  >
+                    Loskoppelen
+                  </button>
+                  {lastSyncAt && (
+                    <span className="text-xs text-slate-500">
+                      Laatst gesynced: {lastSyncAt}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <button
+                  onClick={connectCalendar}
+                  disabled={busy}
+                  className="px-4 py-2 rounded bg-[var(--accent)] text-white text-sm disabled:opacity-60"
+                >
+                  Verbind met Google Calendar
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Calendar-sync staat uit: <code>VITE_GOOGLE_CLIENT_ID</code> is
+            niet ingesteld in Vercel. Je kunt voor nu ICS uploaden (zie
+            hieronder).
+          </p>
+        )}
       </section>
 
       <section className="card p-5 space-y-3">
