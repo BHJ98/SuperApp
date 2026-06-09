@@ -31,10 +31,12 @@ function ProfileToggle() {
           <button
             key={p.id}
             onClick={() => setActiveProfileId(p.id)}
-            className={`rounded-full px-3 py-1 text-sm font-medium transition ${
-              active ? "text-white" : "bg-slate-800 text-slate-400"
-            }`}
-            style={active ? { backgroundColor: p.color } : undefined}
+            className="rounded-full px-3 py-1 text-sm font-medium transition-opacity hover:opacity-80"
+            style={
+              active
+                ? { backgroundColor: p.color, color: "#fff" }
+                : { background: "var(--raised)", color: "var(--muted)" }
+            }
           >
             {p.name}
           </button>
@@ -47,19 +49,38 @@ function ProfileToggle() {
 export default function WorkoutApp() {
   return (
     <ProfileProvider>
-      <div className="-mx-4 -mt-4 flex min-h-[calc(100vh-3.25rem)] flex-col">
-        <div className="sticky top-[3.25rem] z-[5] flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-3 backdrop-blur">
+      <div
+        className="-mx-4 -mt-4 flex min-h-[calc(100vh-3.25rem)] flex-col"
+        data-app="workout"
+      >
+        {/* Sub-header */}
+        <div
+          className="sticky top-[3.25rem] z-[5] flex items-center justify-between gap-3 px-5 py-3 backdrop-blur-md"
+          style={{
+            borderBottom: "1px solid var(--border)",
+            background: "rgba(10, 10, 15, 0.92)",
+          }}
+        >
           <div>
-            <h2 className="text-base font-bold leading-none">Workout</h2>
+            <h2
+              className="font-display text-base font-semibold leading-none tracking-tight"
+              style={{ color: "var(--ink)" }}
+            >
+              Workout
+            </h2>
             {STORAGE_MODE === "local" && (
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                local storage
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "var(--muted)" }}
+              >
+                local
               </span>
             )}
           </div>
           <ProfileToggle />
         </div>
 
+        {/* Page content */}
         <div className="flex-1 px-4 pb-24 pt-4">
           <Routes>
             <Route index element={<Home />} />
@@ -77,16 +98,24 @@ export default function WorkoutApp() {
           </Routes>
         </div>
 
-        <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-2xl justify-around border-t border-slate-800 bg-slate-900/95 px-2 py-2 backdrop-blur">
+        {/* Bottom tab nav */}
+        <nav
+          className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-2xl justify-around px-2 py-2 backdrop-blur-md"
+          style={{
+            borderTop: "1px solid var(--border)",
+            background: "rgba(10, 10, 15, 0.95)",
+          }}
+        >
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-1.5 text-xs font-medium ${
-                  isActive ? "bg-slate-800 text-blue-400" : "text-slate-400"
-                }`
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+              style={({ isActive }) =>
+                isActive
+                  ? { background: "var(--accent-workout)", color: "#fff" }
+                  : { color: "var(--muted)" }
               }
             >
               {item.label}

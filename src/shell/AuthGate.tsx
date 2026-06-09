@@ -22,9 +22,6 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!supabase) return;
     let active = true;
 
-    // OAuth redirect with an error in the hash means Supabase rejected the
-    // sign-in (almost always the Before-User-Created hook denying a
-    // non-allow-listed email). Capture it and clear the URL.
     const oauthError = readOauthErrorFromHash();
     if (oauthError) history.replaceState(null, "", window.location.pathname);
 
@@ -84,14 +81,32 @@ function SignIn() {
       options: { redirectTo: window.location.origin },
     });
   };
+
   return (
     <CenteredMessage>
-      <div className="text-center">
-        <h1 className="mb-2 text-2xl font-bold">SuperApp</h1>
-        <p className="mb-6 text-slate-400">Sign in to continue.</p>
-        <button onClick={onClick} className="btn-primary">
-          Sign in with Google
-        </button>
+      <div className="w-full max-w-sm text-center">
+        <div className="mb-10">
+          <h1
+            className="font-display text-5xl font-bold tracking-tight leading-none mb-3"
+            style={{ color: "var(--ink)" }}
+          >
+            SuperApp
+          </h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Sign in to continue.
+          </p>
+        </div>
+        <div
+          className="rounded-2xl p-6"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <button onClick={onClick} className="btn-primary w-full py-3">
+            Sign in with Google
+          </button>
+        </div>
       </div>
     </CenteredMessage>
   );
@@ -101,13 +116,26 @@ function Denied({ reason }: { reason: string }) {
   const onTryAgain = () => supabase?.auth.signOut().then(() => window.location.reload());
   return (
     <CenteredMessage>
-      <div className="text-center max-w-sm">
-        <h1 className="mb-2 text-2xl font-bold">No access</h1>
-        <p className="mb-1 text-slate-400">{reason}</p>
-        <p className="mb-6 text-xs text-slate-500">
+      <div
+        className="w-full max-w-sm rounded-2xl p-8 text-center"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <h1
+          className="font-display text-3xl font-bold tracking-tight mb-3"
+          style={{ color: "var(--ink)" }}
+        >
+          No access
+        </h1>
+        <p className="text-sm mb-1" style={{ color: "var(--muted)" }}>
+          {reason}
+        </p>
+        <p className="text-xs mb-6" style={{ color: "var(--faint)" }}>
           This account isn't on the allow-list.
         </p>
-        <button onClick={onTryAgain} className="btn-ghost">
+        <button onClick={onTryAgain} className="btn-ghost w-full">
           Try a different account
         </button>
       </div>
@@ -123,8 +151,15 @@ function CenteredMessage({ children }: { children: ReactNode }) {
 
 function DevBanner() {
   return (
-    <div className="bg-amber-900/40 border-b border-amber-700/40 px-4 py-1.5 text-center text-[11px] uppercase tracking-wide text-amber-200">
-      dev mode — auth disabled (no VITE_SUPABASE_URL)
+    <div
+      className="px-4 py-1.5 text-center text-[11px] uppercase tracking-widest"
+      style={{
+        background: "rgba(163, 45, 45, 0.15)",
+        borderBottom: "1px solid rgba(163, 45, 45, 0.3)",
+        color: "#A42D2D",
+      }}
+    >
+      dev mode — auth disabled
     </div>
   );
 }

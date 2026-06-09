@@ -1,36 +1,56 @@
-@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Global design tokens ─────────────────────────────────────── */
 :root {
   color-scheme: dark;
+
+  /* Base palette */
+  --base:          #0a0a0f;
+  --surface:       #111118;
+  --raised:        #1a1a24;
+  --border:        #2a2a38;
+
+  /* Text */
+  --ink:   #f0f0f8;
+  --muted: #8888a0;
+  --faint: #3a3a52;
+
+  /* App accent colours */
+  --accent-workout:   #3636BA;
+  --accent-groceries: #E2E4DC;
+  --accent-bakjes:    #A42D2D;
+  --accent-finance:   #264319;
+  --accent-marblebag: #1d8787;
+  --accent:           var(--accent-workout);
+
+  /* Legacy aliases — keeps bakjes/groceries component internals working */
+  --bg:   var(--base);
+  --card: var(--surface);
+  --gold: var(--accent-groceries);
 }
 
-/* Bakjes module palette, scoped so its CSS-variable styling (border, accent,
-   card backgrounds) doesn't leak into the rest of the shell. */
+/* Per-app accent cascade (set via data-app attribute on the app root) */
+[data-app="workout"]   { --accent: var(--accent-workout);   }
+[data-app="groceries"] { --accent: var(--accent-groceries); }
+[data-app="bakjes"]    { --accent: var(--accent-bakjes);    }
+[data-app="finance"]   { --accent: var(--accent-finance);   }
+[data-app="marblebag"] { --accent: var(--accent-marblebag); }
+
+/* ─── Bakjes scoped overrides ───────────────────────────────────── */
+/* Maps old variable names to global tokens — bakjes pages still reference
+   var(--bg), var(--card), var(--accent) etc. and these must resolve. */
 .bakjes-app {
-  --bg: #0f172a;
-  --card: #1e293b;
-  --ink: #e2e8f0;
-  --border: #334155;
-  --accent: #3b82f6;
+  --bg:     var(--base);
+  --card:   var(--surface);
+  --ink:    #f0f0f8;
+  --border: #2a2a38;
+  --accent: var(--accent-bakjes);
 }
 
-/* Boodschappen module owns its own (dark) palette + fonts, scoped so it
-   doesn't restyle the rest of the shell. Mirrors the upstream .dark theme. */
-.groceries-app {
-  --bg: #0d1a0f;
-  --surface: #132015;
-  --raised: #192b1b;
-  --ink: #ede8d8;
-  --muted: #7a9a7a;
-  --border: #253a27;
-  --gold: #c9a84c;
-  --font-bebas: "Bebas Neue";
-  --font-dm-sans: "DM Sans";
-}
-
+/* ─── Base ──────────────────────────────────────────────────────── */
 html,
 body,
 #root {
@@ -39,38 +59,69 @@ body,
 
 body {
   margin: 0;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family:
-    system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--base);
+  color: var(--ink);
+  font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ─── Component layer ───────────────────────────────────────────── */
 @layer components {
   .card {
-    @apply rounded-2xl bg-slate-800/70 border border-slate-700/60 p-4;
+    @apply rounded-2xl p-4;
+    background: var(--surface);
+    border: 1px solid var(--border);
   }
+
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
       font-medium transition active:scale-[0.98] disabled:opacity-40;
   }
+
   .btn-primary {
-    @apply btn bg-blue-600 text-white hover:bg-blue-500;
+    @apply btn text-white;
+    background: var(--accent);
   }
+  .btn-primary:hover {
+    filter: brightness(1.12);
+  }
+
   .btn-ghost {
-    @apply btn bg-slate-700/60 text-slate-100 hover:bg-slate-700;
+    @apply btn;
+    color: var(--ink);
+    background: var(--raised);
+    border: 1px solid var(--border);
   }
+  .btn-ghost:hover {
+    border-color: var(--muted);
+  }
+
   .btn-danger {
     @apply btn bg-red-600/80 text-white hover:bg-red-600;
   }
+
   .input {
-    @apply w-full rounded-xl bg-slate-900/70 border border-slate-700 px-3 py-2.5
-      text-slate-100 outline-none focus:border-blue-500;
+    @apply w-full rounded-xl px-3 py-2.5 outline-none;
+    background: var(--base);
+    border: 1px solid var(--border);
+    color: var(--ink);
   }
+  .input::placeholder {
+    color: var(--muted);
+  }
+  .input:focus {
+    border-color: var(--accent);
+  }
+
   .label {
-    @apply block text-xs font-medium uppercase tracking-wide text-slate-400 mb-1;
+    @apply block text-xs font-medium uppercase tracking-wide mb-1;
+    color: var(--muted);
   }
+
   .chip {
-    @apply inline-block rounded-full bg-slate-700/70 px-2 py-0.5 text-xs text-slate-300;
+    @apply inline-block rounded-full px-2 py-0.5 text-xs;
+    background: var(--raised);
+    border: 1px solid var(--border);
+    color: var(--muted);
   }
 }

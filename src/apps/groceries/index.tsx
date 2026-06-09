@@ -150,13 +150,13 @@ export default function Groceries() {
   };
 
   return (
-    <div className="groceries-app -mx-4 -mt-4 min-h-[calc(100vh-3.25rem)] bg-bg font-sans text-ink">
-      <div className="h-1 bg-gold" />
+    <div className="-mx-4 -mt-4 min-h-[calc(100vh-3.25rem)]" data-app="groceries">
+      <div className="h-0.5 bg-gold" />
       <div className="mx-auto max-w-2xl px-5">
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border pb-6 pt-6">
           <div>
-            <h1 className="font-bebas text-5xl leading-none tracking-widest text-ink">
+            <h1 className="font-display text-5xl font-bold leading-none tracking-tight text-ink">
               Boodschappen
             </h1>
             <p className="mt-1.5 text-xs uppercase tracking-widest text-muted">
@@ -266,7 +266,7 @@ export default function Groceries() {
 
               {filteredRecipes.length === 0 ? (
                 <div className="mt-20 text-center">
-                  <p className="font-bebas text-3xl tracking-widest text-border">
+                  <p className="font-display text-3xl font-bold tracking-tight text-border">
                     {recipeSearch ? "Geen resultaten" : "Geen recepten"}
                   </p>
                   <p className="mt-2 text-xs uppercase tracking-widest text-muted">
@@ -330,7 +330,7 @@ export default function Groceries() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gold">
               Verrassing
             </p>
-            <h2 className="mb-1 font-bebas text-4xl leading-tight tracking-widest text-ink">
+            <h2 className="mb-1 font-display text-4xl font-bold leading-tight tracking-tight text-ink">
               {randomRecipe.title.toUpperCase()}
             </h2>
             <p className="mb-5 text-xs text-muted">
