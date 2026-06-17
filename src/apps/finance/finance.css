@@ -1,0 +1,38 @@
+/* Finance app — scoped styling layer.
+ *
+ * The Finance UI was ported from a shadcn/ui (Next.js) app that relied on a
+ * base rule giving every element the theme border color. We replicate that
+ * here, scoped to `.finance-app`, so ported components that use bare `border`
+ * / `border-t` utilities pick up SuperApp's subtle border instead of the
+ * Tailwind default (currentColor). Nothing here leaks to the other apps.
+ */
+.finance-app *,
+.finance-app *::before,
+.finance-app *::after {
+  border-color: var(--border);
+}
+
+/* Dialog animations (from the source app's globals.css) */
+@keyframes fin-dialog-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fin-dialog-content-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.finance-app .dialog-overlay {
+  animation: fin-dialog-overlay-in 150ms ease-out;
+}
+.finance-app .dialog-content {
+  animation: fin-dialog-content-in 150ms ease-out;
+}
+
+/* Toast animation */
+@keyframes fin-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.finance-app .animate-toast-in {
+  animation: fin-toast-in 200ms ease-out;
+}
