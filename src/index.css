@@ -50,6 +50,20 @@
   --accent: var(--accent-bakjes);
 }
 
+/* Native form controls render with the UA default text color, which on a
+   dark background is unreadable. Force them to inherit the app ink, and
+   give <option> popups an explicit dark surface so the dropdown items
+   are legible in Chromium. */
+.bakjes-app input,
+.bakjes-app select,
+.bakjes-app textarea {
+  color: var(--ink);
+}
+.bakjes-app option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
 /* ─── Base ──────────────────────────────────────────────────────── */
 html,
 body,
