@@ -41,19 +41,27 @@ create trigger on_auth_user_created
 -- 4. Before-User-Created auth hook: reject any email not on the allow-list.
 --    Supabase calls this with a jsonb `event`; return it unchanged to allow,
 --    or return an {error} object to reject the signup.
+--    MUST be SECURITY DEFINER: the hook runs as supabase_auth_admin and there
+--    is RLS on allowed_emails, so without DEFINER the policy hides every row
+--    (no JWT during signup) and the lookup always finds zero rows → everyone
+--    rejected. DEFINER runs it as the owner and bypasses RLS, same reason
+--    is_allowed() below is DEFINER.
 create or replace function public.before_user_created(event jsonb)
 returns jsonb
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
-  candidate text := lower(event #>> '{user_metadata,email}');
+  -- The Before-User-Created payload carries the email at {user,email}.
+  -- Fall back through other locations for safety across provider/versions.
+  candidate text := lower(coalesce(
+    event #>> '{user,email}',
+    event #>> '{user,raw_user_meta_data,email}',
+    event #>> '{claims,email}',
+    event #>> '{email}'
+  ));
 begin
-  -- The email may arrive under different keys depending on provider/version;
-  -- fall back through the common locations.
-  if candidate is null then
-    candidate := lower(coalesce(event #>> '{claims,email}', event #>> '{email}'));
-  end if;
-
   if candidate is null
      or not exists (
        select 1 from public.allowed_emails ae where lower(ae.email) = candidate
