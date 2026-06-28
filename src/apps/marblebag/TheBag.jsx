@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { storageSave, storageLoad, subscribeToState } from './firebase'
+import { storageSave, storageLoad, subscribeToState } from './supabaseStore'
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 
