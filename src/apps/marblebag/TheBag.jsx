@@ -1535,7 +1535,7 @@ export default function App() {
       setState(loaded)
       initialized.current = true
     }
-    // Timeout fallback — use localStorage if Firebase hasn't responded in 4s
+    // Timeout fallback — use localStorage if Supabase hasn't responded in 1.5s
     const fallback = setTimeout(() => {
       if (!initialized.current) {
         try {
@@ -1552,7 +1552,7 @@ export default function App() {
         }
         initialized.current = true
       }
-    }, 4000)
+    }, 1500)
     return () => {
       clearTimeout(fallback)
       if (unsub) unsub()

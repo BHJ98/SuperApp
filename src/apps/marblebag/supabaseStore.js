@@ -64,8 +64,15 @@ export function subscribeToState(callback) {
     .eq('id', ROW_ID)
     .maybeSingle()
     .then(({ data, error }) => {
-      if (cancelled || error) return
+      if (cancelled) return
+      if (error) {
+        console.error('[marblebag] Supabase load error — check that schema is exposed in Settings → API → Exposed schemas:', error)
+        return
+      }
       callback(data ? data.data : null)
+    })
+    .catch((err) => {
+      if (!cancelled) console.error('[marblebag] Supabase query threw:', err)
     })
 
   const channel = supabase
