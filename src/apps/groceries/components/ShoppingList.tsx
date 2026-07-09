@@ -1,12 +1,21 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Recipe, Ingredient } from "../types";
 import { scaleIngredients, formatIngredientsAsText } from "../lib/ingredients";
+import {
+  deleteShoppingListItem,
+  subscribeToShoppingListItems,
+  upsertShoppingListItem,
+  type ShoppingListItemRow,
+} from "../lib/data";
+import { useToast } from "@/lib/toast";
 
 interface ShoppingItem extends Ingredient {
+  itemKey: string;
+  kind: "recipe" | "manual";
+  recipeId: string | null;
   checked: boolean;
   recipeTitle: string;
-  recipeId: string;
 }
 
 const SWIPE_THRESHOLD = 80; // px before delete triggers
@@ -22,42 +31,107 @@ export function ShoppingList({
   filterRecipeIds?: Set<string>;
   onClearFilter?: () => void;
 }) {
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-  const [deletedItems, setDeletedItems] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+  const [dbItems, setDbItems] = useState<Map<string, ShoppingListItemRow>>(new Map());
+  const [loading, setLoading] = useState(true);
   const [exitingKeys, setExitingKeys] = useState<Set<string>>(new Set());
   const [manageMode, setManageMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  const [newItemText, setNewItemText] = useState("");
 
   // Swipe state — only one item at a time
   const [swipingKey, setSwipingKey] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const touchStartX = useRef(0);
 
+  // Shared, persisted, realtime — both partners see the same list live.
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = subscribeToShoppingListItems((rows) => {
+        setDbItems(new Map(rows.map((r) => [r.itemKey, r])));
+        setLoading(false);
+      });
+    } catch {
+      setLoading(false);
+    }
+    return () => unsub?.();
+  }, []);
+
   const activeRecipes = filterRecipeIds && filterRecipeIds.size > 0
     ? recipes.filter((r) => filterRecipeIds.has(r.id))
     : recipes;
 
-  const allItems: ShoppingItem[] = activeRecipes.flatMap((recipe) => {
+  // item_key is recipe:<recipeId>:<ingredientIndex> — index-based so two
+  // identically-named ingredients in the same recipe no longer collide on
+  // one shared check/delete state.
+  const recipeItems: ShoppingItem[] = activeRecipes.flatMap((recipe) => {
     const originalServings = recipe.servings || 4;
     const newServings = adjustedServings[recipe.id] || originalServings;
     const scaled = scaleIngredients(recipe.ingredients, originalServings, newServings);
-    return scaled.map((ing) => ({
-      ...ing,
-      checked: checkedItems.has(`${recipe.id}-${ing.name}`),
-      recipeTitle: recipe.title,
-      recipeId: recipe.id,
-    }));
-  });
-
-  const items = allItems.filter((item) => !deletedItems.has(`${item.recipeId}-${item.name}`));
-
-  function toggleCheck(key: string) {
-    setCheckedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
+    return scaled.map((ing, i) => {
+      const itemKey = `recipe:${recipe.id}:${i}`;
+      const row = dbItems.get(itemKey);
+      return {
+        ...ing,
+        itemKey,
+        kind: "recipe" as const,
+        recipeId: recipe.id,
+        checked: row?.checked ?? false,
+        recipeTitle: recipe.title,
+        __removed: row?.removed ?? false,
+      };
     });
+  }).filter((item) => !item.__removed) as ShoppingItem[];
+
+  const manualItems: ShoppingItem[] = Array.from(dbItems.values())
+    .filter((r) => r.kind === "manual" && !r.removed)
+    .sort((a, b) => a.itemKey.localeCompare(b.itemKey))
+    .map((r) => ({
+      name: r.label ?? "",
+      amount: "",
+      unit: "",
+      itemKey: r.itemKey,
+      kind: "manual" as const,
+      recipeId: null,
+      checked: r.checked,
+      recipeTitle: "",
+    }));
+
+  const items = [...manualItems, ...recipeItems];
+
+  const persist = useCallback(
+    async (item: ShoppingItem, patch: { checked?: boolean; removed?: boolean }) => {
+      const current = dbItems.get(item.itemKey);
+      const next: ShoppingListItemRow = {
+        itemKey: item.itemKey,
+        kind: item.kind,
+        recipeId: item.recipeId,
+        label: item.kind === "manual" ? item.name : null,
+        checked: current?.checked ?? item.checked,
+        removed: current?.removed ?? false,
+        ...patch,
+      };
+      setDbItems((prev) => new Map(prev).set(item.itemKey, next));
+      try {
+        await upsertShoppingListItem(next);
+      } catch {
+        toast("Kon wijziging niet opslaan", "error");
+        // Roll back to the last known-good state on failure.
+        setDbItems((prev) => {
+          const rolledBack = new Map(prev);
+          if (current) rolledBack.set(item.itemKey, current);
+          else rolledBack.delete(item.itemKey);
+          return rolledBack;
+        });
+      }
+    },
+    [dbItems, toast],
+  );
+
+  function toggleCheck(item: ShoppingItem) {
+    persist(item, { checked: !item.checked });
   }
 
   function toggleSelect(key: string) {
@@ -68,22 +142,54 @@ export function ShoppingList({
     });
   }
 
-  function selectAll() { setSelectedItems(new Set(items.map((i) => `${i.recipeId}-${i.name}`))); }
+  function selectAll() { setSelectedItems(new Set(items.map((i) => i.itemKey))); }
   function selectNone() { setSelectedItems(new Set()); }
 
+  async function removeItem(item: ShoppingItem) {
+    if (item.kind === "manual") {
+      setDbItems((prev) => { const next = new Map(prev); next.delete(item.itemKey); return next; });
+      try {
+        await deleteShoppingListItem(item.itemKey);
+      } catch {
+        toast("Kon item niet verwijderen", "error");
+      }
+    } else {
+      await persist(item, { removed: true });
+    }
+  }
+
   function deleteSelected() {
-    setDeletedItems((prev) => { const next = new Set(prev); selectedItems.forEach((k) => next.add(k)); return next; });
+    const toRemove = items.filter((i) => selectedItems.has(i.itemKey));
     setSelectedItems(new Set());
     setManageMode(false);
+    for (const item of toRemove) removeItem(item);
   }
 
   // Animate item off-screen then remove it
-  function deleteOne(key: string) {
-    setExitingKeys((prev) => new Set(prev).add(key));
+  function deleteOne(item: ShoppingItem) {
+    setExitingKeys((prev) => new Set(prev).add(item.itemKey));
     setTimeout(() => {
-      setDeletedItems((prev) => new Set(prev).add(key));
-      setExitingKeys((prev) => { const next = new Set(prev); next.delete(key); return next; });
+      removeItem(item);
+      setExitingKeys((prev) => { const next = new Set(prev); next.delete(item.itemKey); return next; });
     }, 280);
+  }
+
+  async function addManualItem(e: React.FormEvent) {
+    e.preventDefault();
+    const label = newItemText.trim();
+    if (!label) return;
+    setNewItemText("");
+    const itemKey = `manual:${crypto.randomUUID()}`;
+    const row: ShoppingListItemRow = {
+      itemKey, kind: "manual", recipeId: null, label, checked: false, removed: false,
+    };
+    setDbItems((prev) => new Map(prev).set(itemKey, row));
+    try {
+      await upsertShoppingListItem(row);
+    } catch {
+      toast("Kon item niet toevoegen", "error");
+      setDbItems((prev) => { const next = new Map(prev); next.delete(itemKey); return next; });
+    }
   }
 
   // ── Touch handlers ──────────────────────────────────────
@@ -100,17 +206,17 @@ export function ShoppingList({
     setSwipeOffset(Math.min(0, dx)); // left only
   }
 
-  function onTouchEnd(key: string) {
+  function onTouchEnd(key: string, item: ShoppingItem) {
     if (swipingKey !== key) return;
     if (swipeOffset < -SWIPE_THRESHOLD) {
-      deleteOne(key);
+      deleteOne(item);
     }
     setSwipingKey(null);
     setSwipeOffset(0);
   }
 
   async function copyToClipboard() {
-    const unchecked = items.filter((i) => !checkedItems.has(`${i.recipeId}-${i.name}`));
+    const unchecked = items.filter((i) => !i.checked);
     const text = formatIngredientsAsText(unchecked);
     try {
       await navigator.clipboard.writeText(text);
@@ -121,25 +227,48 @@ export function ShoppingList({
     }
   }
 
-  if (items.length === 0 && allItems.length === 0) {
+  if (loading) {
     return (
       <div className="text-center mt-20">
-        <p className="font-bebas text-3xl tracking-widest text-border">Geen boodschappen</p>
-        <p className="text-muted text-xs mt-2 uppercase tracking-widest">Voeg recepten toe om een lijst te maken</p>
+        <p className="text-muted text-xs uppercase tracking-widest">Laden…</p>
       </div>
     );
   }
+
+  const addItemForm = (
+    <form onSubmit={addManualItem} className="mb-4 flex gap-2">
+      <input
+        type="text"
+        value={newItemText}
+        onChange={(e) => setNewItemText(e.target.value)}
+        placeholder="Item toevoegen (bijv. wc-papier)…"
+        className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-xs text-ink placeholder:text-muted focus:border-gold focus:outline-none"
+      />
+      <button
+        type="submit"
+        disabled={!newItemText.trim()}
+        className="shrink-0 rounded-md bg-gold px-4 py-2 text-xs font-semibold uppercase tracking-widest text-bg hover:opacity-90 disabled:opacity-30"
+      >
+        Toevoegen
+      </button>
+    </form>
+  );
 
   if (items.length === 0) {
     return (
-      <div className="text-center mt-20">
-        <p className="font-bebas text-3xl tracking-widest text-border">Lijst leeg</p>
-        <p className="text-muted text-xs mt-2 uppercase tracking-widest">Alle items zijn verwijderd</p>
+      <div>
+        {addItemForm}
+        <div className="text-center mt-16">
+          <p className="font-bebas text-3xl tracking-widest text-border">Geen boodschappen</p>
+          <p className="text-muted text-xs mt-2 uppercase tracking-widest">
+            Voeg recepten toe of typ hierboven een los item
+          </p>
+        </div>
       </div>
     );
   }
 
-  const uncheckedCount = items.filter((i) => !checkedItems.has(`${i.recipeId}-${i.name}`)).length;
+  const uncheckedCount = items.filter((i) => !i.checked).length;
   const allSelected = items.length > 0 && selectedItems.size === items.length;
 
   return (
@@ -210,11 +339,13 @@ export function ShoppingList({
         )}
       </div>
 
+      {!manageMode && addItemForm}
+
       {/* Items */}
       <div className="space-y-0.5">
-        {items.map((item, i) => {
-          const key = `${item.recipeId}-${item.name}`;
-          const isChecked = checkedItems.has(key);
+        {items.map((item) => {
+          const key = item.itemKey;
+          const isChecked = item.checked;
           const isSelected = selectedItems.has(key);
           const isSwiping = swipingKey === key;
           const isExiting = exitingKeys.has(key);
@@ -226,7 +357,7 @@ export function ShoppingList({
 
           return (
             <div
-              key={`${key}-${i}`}
+              key={key}
               className="relative rounded-md overflow-hidden"
               style={{
                 // Collapse height smoothly when exiting
@@ -264,11 +395,11 @@ export function ShoppingList({
                 onClick={() => {
                   // Don't fire click if we just finished a meaningful swipe
                   if (Math.abs(swipeOffset) > 5) return;
-                  if (manageMode) toggleSelect(key); else toggleCheck(key);
+                  if (manageMode) toggleSelect(key); else toggleCheck(item);
                 }}
                 onTouchStart={(e) => onTouchStart(key, e)}
                 onTouchMove={(e) => onTouchMove(key, e)}
-                onTouchEnd={() => onTouchEnd(key)}
+                onTouchEnd={() => onTouchEnd(key, item)}
                 role="button"
               >
                 {/* Checkbox */}
@@ -302,12 +433,14 @@ export function ShoppingList({
                   </p>
                 </div>
 
-                <span className="text-xs text-muted truncate max-w-[90px] shrink-0">{item.recipeTitle}</span>
+                {item.recipeTitle && (
+                  <span className="text-xs text-muted truncate max-w-[90px] shrink-0">{item.recipeTitle}</span>
+                )}
 
                 {/* Desktop-only hover × */}
                 {!manageMode && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); deleteOne(key); }}
+                    onClick={(e) => { e.stopPropagation(); deleteOne(item); }}
                     className="text-xs text-muted hover:text-red-500 hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
                   >
                     ✕

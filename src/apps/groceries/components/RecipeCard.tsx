@@ -10,6 +10,7 @@ export function RecipeCard({
   onToggleFavorite,
   onRemove,
   canDelete,
+  servings,
   onServingsChange,
 }: {
   recipe: Recipe;
@@ -18,18 +19,18 @@ export function RecipeCard({
   onToggleFavorite: () => void;
   onRemove: () => void;
   canDelete: boolean;
+  servings: number;
   onServingsChange?: (servings: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const originalServings = recipe.servings || 4;
-  const [adjustedServings, setAdjustedServings] = useState(originalServings);
+  const adjustedServings = servings;
 
   const scaledIngredients = scaleIngredients(recipe.ingredients, originalServings, adjustedServings);
 
   function updateServings(delta: number) {
     const next = Math.max(1, adjustedServings + delta);
-    setAdjustedServings(next);
     onServingsChange?.(next);
   }
 
@@ -103,7 +104,7 @@ export function RecipeCard({
             </div>
             {adjustedServings !== originalServings && (
               <button
-                onClick={() => { setAdjustedServings(originalServings); onServingsChange?.(originalServings); }}
+                onClick={() => onServingsChange?.(originalServings)}
                 className="text-xs text-gold hover:underline"
               >Reset</button>
             )}

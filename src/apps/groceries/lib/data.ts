@@ -84,3 +84,98 @@ export async function listCookedRecipeIds(userId: string): Promise<Set<string>> 
   const { data } = await gdb().from("meal_plans").select("recipe_id").eq("user_id", userId);
   return new Set((data ?? []).map((mp) => (mp as Row).recipe_id as string));
 }
+
+// ---- Shopping list: shared + persisted + realtime (household-wide, not per-user) ----
+
+export type ShoppingListItemRow = {
+  itemKey: string;
+  kind: "recipe" | "manual";
+  recipeId: string | null;
+  label: string | null;
+  checked: boolean;
+  removed: boolean;
+};
+
+function rowToShoppingListItem(r: Row): ShoppingListItemRow {
+  return {
+    itemKey: r.item_key as string,
+    kind: r.kind as "recipe" | "manual",
+    recipeId: (r.recipe_id as string | null) ?? null,
+    label: (r.label as string | null) ?? null,
+    checked: r.checked as boolean,
+    removed: r.removed as boolean,
+  };
+}
+
+export async function listShoppingListItems(): Promise<ShoppingListItemRow[]> {
+  const { data, error } = await gdb().from("shopping_list_items").select("*");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToShoppingListItem);
+}
+
+export async function upsertShoppingListItem(item: {
+  itemKey: string;
+  kind: "recipe" | "manual";
+  recipeId?: string | null;
+  label?: string | null;
+  checked: boolean;
+  removed: boolean;
+}): Promise<void> {
+  const { error } = await gdb()
+    .from("shopping_list_items")
+    .upsert(
+      {
+        item_key: item.itemKey,
+        kind: item.kind,
+        recipe_id: item.recipeId ?? null,
+        label: item.label ?? null,
+        checked: item.checked,
+        removed: item.removed,
+      },
+      { onConflict: "item_key" },
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteShoppingListItem(itemKey: string): Promise<void> {
+  const { error } = await gdb().from("shopping_list_items").delete().eq("item_key", itemKey);
+  if (error) throw new Error(error.message);
+}
+
+// Realtime subscription — fires once with the current rows, then again on
+// every insert/update/delete from any device. Returns an unsubscribe fn.
+export function subscribeToShoppingListItems(
+  callback: (items: ShoppingListItemRow[]) => void,
+): () => void {
+  if (!supabase) throw new Error("Supabase client not configured");
+  let cancelled = false;
+
+  listShoppingListItems()
+    .then((items) => {
+      if (!cancelled) callback(items);
+    })
+    .catch(() => {
+      // Stay silent on a failed initial load — the caller keeps whatever it
+      // had (or an empty list), rather than treating a transient error as
+      // "the list is genuinely empty."
+    });
+
+  const channel = supabase
+    .channel("boodschappen-shopping-list")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "boodschappen", table: "shopping_list_items" },
+      () => {
+        if (cancelled) return;
+        listShoppingListItems().then((items) => {
+          if (!cancelled) callback(items);
+        });
+      },
+    )
+    .subscribe();
+
+  return () => {
+    cancelled = true;
+    supabase!.removeChannel(channel);
+  };
+}

@@ -286,6 +286,7 @@ export default function Groceries() {
                       onToggleFavorite={() => toggleFavorite(recipe.id)}
                       onRemove={() => handleRemoveRecipe(recipe.id)}
                       canDelete={recipe.userId === user.id}
+                      servings={adjustedServings[recipe.id] ?? recipe.servings ?? 4}
                       onServingsChange={(s) => handleServingsChange(recipe.id, s)}
                     />
                   ))}
