@@ -161,6 +161,7 @@ export type Database = {
           household_id: string;
           account_id: string | null;
           requisition_id: string;
+          session_id: string | null;
           gocardless_account_id: string | null;
           institution_id: string;
           institution_name: string;

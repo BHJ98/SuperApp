@@ -35,16 +35,17 @@ export default function BankSyncPage() {
   const [connecting, setConnecting] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
-  // GoCardless redirects back here with ?ref=REQUISITION_ID
-  const refParam = searchParams.get('ref')
+  // Enable Banking redirects back here with ?code=ONE_TIME_CODE&state=OUR_KEY
+  const codeParam = searchParams.get('code')
+  const stateParam = searchParams.get('state')
 
   useEffect(() => { loadConnections() }, [])
 
   useEffect(() => {
-    if (!refParam) return
+    if (!codeParam || !stateParam) return
     setSearchParams({}, { replace: true })
-    syncConnection(refParam, true)
-  }, [refParam])
+    syncConnection(stateParam, true, codeParam)
+  }, [codeParam, stateParam])
 
   async function loadConnections() {
     setLoading(true)
@@ -85,12 +86,12 @@ export default function BankSyncPage() {
     window.location.href = data.link
   }
 
-  async function syncConnection(requisition_id: string, afterRedirect = false) {
+  async function syncConnection(requisition_id: string, afterRedirect = false, code?: string) {
     setSyncing(requisition_id)
     if (afterRedirect) toast('Bank verbonden! Transacties worden geladen…')
 
     const { data, error } = await supabase.functions.invoke('bank-sync', {
-      body: { requisition_id },
+      body: { requisition_id, code },
     })
     setSyncing(null)
 
