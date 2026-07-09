@@ -1,5 +1,6 @@
 
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent } from "@/apps/finance/components/ui/card";
@@ -17,7 +18,7 @@ import {
 } from "@/apps/finance/components/ui/dialog";
 import { useToast } from "@/apps/finance/components/ui/toast";
 import { TableSkeleton } from "@/apps/finance/components/ui/skeleton";
-import { Plus, Pencil, Trash2, ListChecks, ToggleLeft, ToggleRight, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, ListChecks, ToggleLeft, ToggleRight, AlertCircle, RefreshCw, ChevronLeft } from "lucide-react";
 
 type Rule = {
   id: string;
@@ -184,6 +185,7 @@ export default function RulesPage() {
   if (loading) {
     return (
       <div>
+        <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Categorisatieregels</h1>
         </div>
@@ -206,6 +208,7 @@ export default function RulesPage() {
 
   return (
     <div>
+      <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold">Categorisatieregels</h1>

@@ -1,5 +1,6 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/apps/finance/components/ui/card";
@@ -17,6 +18,7 @@ import {
   Tags,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
 } from "lucide-react";
 
 type Account = {
@@ -540,6 +542,7 @@ export default function ImportPage() {
   if (loading) {
     return (
       <div>
+        <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
         <h1 className="text-3xl font-bold mb-6">Importeren</h1>
         <Card><CardContent className="p-6"><Skeleton className="h-32 w-full" /></CardContent></Card>
       </div>
@@ -548,6 +551,7 @@ export default function ImportPage() {
 
   return (
     <div>
+      <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
       <h1 className="text-3xl font-bold mb-6">Importeren</h1>
 
       {/* Step: Upload */}

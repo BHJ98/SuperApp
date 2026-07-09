@@ -1,5 +1,6 @@
 
 import { useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/apps/finance/components/ui/card";
@@ -12,6 +13,7 @@ import {
   Loader2,
   FileJson,
   ShieldCheck,
+  ChevronLeft,
 } from "lucide-react";
 
 const BACKUP_VERSION = 1;
@@ -268,6 +270,7 @@ export default function BackupPage() {
 
   return (
     <div>
+      <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
       <h1 className="text-3xl font-bold mb-6">Back-up & Herstel</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

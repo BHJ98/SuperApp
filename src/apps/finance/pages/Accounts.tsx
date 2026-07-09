@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/apps/finance/components/ui/card";
@@ -18,7 +19,7 @@ import { Badge } from "@/apps/finance/components/ui/badge";
 import { formatCurrency } from "@/apps/finance/lib/utils";
 import { useToast } from "@/apps/finance/components/ui/toast";
 import { CardSkeleton } from "@/apps/finance/components/ui/skeleton";
-import { Plus, Pencil, Archive, ArchiveRestore, Wallet, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Archive, ArchiveRestore, Wallet, AlertCircle, RefreshCw, ChevronLeft } from "lucide-react";
 
 type Account = {
   id: string;
@@ -186,6 +187,7 @@ export default function AccountsPage() {
   if (loading) {
     return (
       <div>
+        <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Rekeningen</h1>
         </div>
@@ -212,6 +214,7 @@ export default function AccountsPage() {
 
   return (
     <div>
+      <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold">Rekeningen</h1>

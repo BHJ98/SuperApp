@@ -1,9 +1,10 @@
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { createClient } from "@/apps/finance/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/apps/finance/components/ui/card";
 import { Skeleton } from "@/apps/finance/components/ui/skeleton";
-import { User, Mail, Home, Calendar } from "lucide-react";
+import { User, Mail, Home, Calendar, ChevronLeft } from "lucide-react";
 
 type ProfileData = {
   email: string;
@@ -67,6 +68,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div>
+        <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
         <h1 className="text-3xl font-bold mb-6">Profiel</h1>
         <Card><CardContent className="p-6 space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -90,6 +92,7 @@ export default function ProfilePage() {
 
   return (
     <div>
+      <Link to="/finance/beheer" className="mb-2 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-ink"><ChevronLeft className="h-4 w-4" />Beheer</Link>
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Mijn account</h1>
         <p className="text-muted-foreground mt-1">Accountgegevens en instellingen</p>

@@ -1,5 +1,6 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent } from "@/apps/finance/components/ui/card";
@@ -54,6 +55,8 @@ const PAGE_SIZE = 50;
 export default function TransactionsPage() {
   const { supabase, householdId, flatCategories, accounts } = useAppData();
   const { toast } = useToast();
+  // Deep-link support: Reports/Dashboard link here with query params.
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +67,15 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterAccount, setFilterAccount] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterCategorized, setFilterCategorized] = useState("no");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterCategory, setFilterCategory] = useState(() => searchParams.get("category") ?? "");
+  const [filterCategorized, setFilterCategorized] = useState(() => {
+    if (searchParams.get("status") === "uncategorized") return "no";
+    // With a category deep link, show all matching transactions (not just uncategorized ones).
+    if (searchParams.get("category")) return "";
+    return "no";
+  });
+  const [filterDateFrom, setFilterDateFrom] = useState(() => searchParams.get("from") ?? "");
+  const [filterDateTo, setFilterDateTo] = useState(() => searchParams.get("to") ?? "");
   const [showFilters, setShowFilters] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 

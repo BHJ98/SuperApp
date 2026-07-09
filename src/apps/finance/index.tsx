@@ -1,14 +1,10 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   ArrowLeftRight,
-  Upload,
-  Tags,
-  Wallet,
   PiggyBank,
   BarChart3,
-  ListChecks,
-  Building2,
+  Settings2,
 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -28,20 +24,33 @@ import Profile from "./pages/Profile";
 import Backup from "./pages/Backup";
 import Setup from "./pages/Setup";
 import BankSync from "./pages/BankSync";
+import Beheer from "./pages/Beheer";
 
 const navItems = [
-  { to: "/finance", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/finance", label: "Overzicht", icon: LayoutDashboard, end: true },
   { to: "/finance/transactions", label: "Transacties", icon: ArrowLeftRight },
-  { to: "/finance/import", label: "Importeren", icon: Upload },
-  { to: "/finance/categories", label: "Categorieën", icon: Tags },
-  { to: "/finance/accounts", label: "Rekeningen", icon: Wallet },
   { to: "/finance/budgets", label: "Budgetten", icon: PiggyBank },
   { to: "/finance/reports", label: "Rapportages", icon: BarChart3 },
-  { to: "/finance/rules", label: "Regels", icon: ListChecks },
-  { to: "/finance/bank-sync", label: "Bank", icon: Building2 },
+  { to: "/finance/beheer", label: "Beheer", icon: Settings2 },
+];
+
+/** Paths that live under the "Beheer" hub; the Beheer tab highlights on all of them. */
+const beheerPaths = [
+  "/finance/beheer",
+  "/finance/import",
+  "/finance/categories",
+  "/finance/accounts",
+  "/finance/rules",
+  "/finance/bank-sync",
+  "/finance/backup",
+  "/finance/profile",
 ];
 
 function FinanceShell() {
+  const location = useLocation();
+  const beheerActive = beheerPaths.some(
+    (p) => location.pathname === p || location.pathname.startsWith(p + "/")
+  );
   return (
     <div
       className="finance-app -mx-4 -mt-4 min-h-[calc(100vh-3.25rem)]"
@@ -65,6 +74,7 @@ function FinanceShell() {
           </span>
           {navItems.map((l) => {
             const Icon = l.icon;
+            const isBeheer = l.to === "/finance/beheer";
             return (
               <NavLink
                 key={l.to}
@@ -72,8 +82,11 @@ function FinanceShell() {
                 end={l.end}
                 className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5"
                 style={({ isActive }) =>
-                  isActive
-                    ? { background: "var(--accent-finance)", color: "#fff" }
+                  (isBeheer ? beheerActive : isActive)
+                    ? // --surface flips with the theme: white text on the dark-green
+                      // light-theme accent, near-black text on the light-green
+                      // dark-theme accent — readable in both.
+                      { background: "var(--accent-finance)", color: "var(--surface)" }
                     : { color: "var(--muted)" }
                 }
               >
@@ -100,6 +113,7 @@ function FinanceShell() {
           <Route path="backup" element={<Backup />} />
           <Route path="setup" element={<Setup />} />
           <Route path="bank-sync" element={<BankSync />} />
+          <Route path="beheer" element={<Beheer />} />
         </Routes>
       </div>
     </div>
