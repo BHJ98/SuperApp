@@ -320,7 +320,13 @@ export class LocalRepository implements Repository {
 
   async addSet(workoutExerciseId: string, set: NewSet): Promise<WorkoutSet> {
     const db = await this.db();
-    const existing = await db.getAllFromIndex("sets", "workoutExerciseId", workoutExerciseId);
+    // Read-then-write inside ONE readwrite transaction: IndexedDB serializes
+    // overlapping readwrite transactions on the same store, so two addSet
+    // calls fired back-to-back can no longer interleave and produce
+    // duplicate setNumbers (the previous version opened two separate
+    // transactions, leaving a race window between the read and the write).
+    const tx = db.transaction("sets", "readwrite");
+    const existing = await tx.store.index("workoutExerciseId").getAll(workoutExerciseId);
     const record: WorkoutSet = {
       id: uid(),
       workoutExerciseId,
@@ -331,7 +337,8 @@ export class LocalRepository implements Repository {
       e1rm: set.isWarmup ? 0 : estimateE1rm(set.weightKg, set.reps),
       completedAt: null,
     };
-    await db.put("sets", record);
+    await tx.store.put(record);
+    await tx.done;
     return record;
   }
 

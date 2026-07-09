@@ -353,23 +353,17 @@ export class SupabaseRepository implements Repository {
   }
 
   async addSet(workoutExerciseId: string, set: NewSet): Promise<WorkoutSet> {
-    const { count } = await db()
-      .from("sets")
-      .select("id", { count: "exact", head: true })
-      .eq("workout_exercise_id", workoutExerciseId);
+    // set_number is computed atomically server-side (workout.add_set, see
+    // migration/workout_atomic_add_set.sql) rather than via a client-side
+    // count-then-insert, which raced when multiple sets were added rapidly.
     const row = check(
-      await db()
-        .from("sets")
-        .insert({
-          workout_exercise_id: workoutExerciseId,
-          set_number: (count ?? 0) + 1,
-          weight_kg: set.weightKg,
-          reps: set.reps,
-          is_warmup: set.isWarmup,
-          e1rm: set.isWarmup ? 0 : estimateE1rm(set.weightKg, set.reps),
-        })
-        .select("*")
-        .single(),
+      await db().rpc("add_set", {
+        p_workout_exercise_id: workoutExerciseId,
+        p_weight_kg: set.weightKg,
+        p_reps: set.reps,
+        p_is_warmup: set.isWarmup,
+        p_e1rm: set.isWarmup ? 0 : estimateE1rm(set.weightKg, set.reps),
+      }),
     );
     return toSet(row as Row);
   }

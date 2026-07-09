@@ -100,6 +100,7 @@ function ExerciseCard({
 }) {
   const { exercise, sets } = we;
   const { data: history = [] } = useExerciseHistory(profileId, exercise.id);
+  const [adding, setAdding] = useState(false);
 
   const targetSets = useMemo(() => {
     const last = history.filter((s) => s.sets.length > 0).at(-1);
@@ -118,22 +119,40 @@ function ExerciseCard({
     [exercise, targetSets, history],
   );
 
-  function addSuggestedSets() {
-    for (const s of suggestion.sets) {
-      m.addSet.mutate({
-        workoutExerciseId: we.id,
-        set: { weightKg: s.weightKg, reps: s.reps, isWarmup: false },
-      });
+  async function addSuggestedSets() {
+    if (adding) return;
+    setAdding(true);
+    try {
+      // Awaited sequentially — firing these concurrently raced on the
+      // set-number computation and could produce duplicate set numbers.
+      for (const s of suggestion.sets) {
+        await m.addSet.mutateAsync({
+          workoutExerciseId: we.id,
+          set: { weightKg: s.weightKg, reps: s.reps, isWarmup: false },
+        });
+      }
+    } catch {
+      // Already reported via the mutation's onError toast; stop the loop.
+    } finally {
+      setAdding(false);
     }
   }
 
-  function addWarmups() {
-    const working = suggestion.sets[0]?.weightKg ?? 0;
-    for (const s of warmupSets(working, exercise.defaultIncrementKg)) {
-      m.addSet.mutate({
-        workoutExerciseId: we.id,
-        set: { weightKg: s.weightKg, reps: s.reps, isWarmup: true },
-      });
+  async function addWarmups() {
+    if (adding) return;
+    setAdding(true);
+    try {
+      const working = suggestion.sets[0]?.weightKg ?? 0;
+      for (const s of warmupSets(working, exercise.defaultIncrementKg)) {
+        await m.addSet.mutateAsync({
+          workoutExerciseId: we.id,
+          set: { weightKg: s.weightKg, reps: s.reps, isWarmup: true },
+        });
+      }
+    } catch {
+      // Already reported via the mutation's onError toast; stop the loop.
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -160,7 +179,14 @@ function ExerciseCard({
             target {exercise.defaultRepMin}–{exercise.defaultRepMax} reps
           </p>
         </div>
-        <button onClick={() => m.removeExercise.mutate(we.id)} className="text-sm text-red-400">
+        <button
+          onClick={() => {
+            if (confirm(`Remove ${exercise.name} and its logged sets from this workout?`)) {
+              m.removeExercise.mutate(we.id);
+            }
+          }}
+          className="text-sm text-red-400"
+        >
           remove
         </button>
       </div>
@@ -172,11 +198,11 @@ function ExerciseCard({
 
       {ordered.length === 0 ? (
         <div className="flex gap-2">
-          <button onClick={addSuggestedSets} className="btn-primary flex-1">
-            Add {suggestion.sets.length} suggested sets
+          <button onClick={addSuggestedSets} disabled={adding} className="btn-primary flex-1 disabled:opacity-50">
+            {adding ? "Adding…" : `Add ${suggestion.sets.length} suggested sets`}
           </button>
           {suggestion.sets[0]?.weightKg > 0 && (
-            <button onClick={addWarmups} className="btn-ghost">
+            <button onClick={addWarmups} disabled={adding} className="btn-ghost disabled:opacity-50">
               + Warm-up
             </button>
           )}

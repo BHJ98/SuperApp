@@ -4,6 +4,7 @@ import { AuthGate } from "./AuthGate";
 import { Nav } from "./Nav";
 import { Dashboard } from "./Dashboard";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { ToastProvider } from "@/lib/toast";
 
 const Workout   = lazy(() => import("@/apps/workout"));
 const Groceries = lazy(() => import("@/apps/groceries"));
@@ -14,6 +15,7 @@ const Marblebag = lazy(() => import("@/apps/marblebag"));
 export default function App() {
   return (
     <AuthGate>
+      <ToastProvider>
       <div className="flex min-h-full flex-col">
         {/* Nav spans full width on all screen sizes */}
         <Nav />
@@ -40,6 +42,7 @@ export default function App() {
           </RouteErrorBoundary>
         </main>
       </div>
+      </ToastProvider>
     </AuthGate>
   );
 }
