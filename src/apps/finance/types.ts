@@ -155,6 +155,44 @@ export type Database = {
           created_at?: string;
         };
       };
+      bank_connections: {
+        Row: {
+          id: string;
+          household_id: string;
+          account_id: string | null;
+          requisition_id: string;
+          gocardless_account_id: string | null;
+          institution_id: string;
+          institution_name: string;
+          institution_logo: string | null;
+          iban: string | null;
+          status: "pending" | "active" | "expired" | "error";
+          last_synced_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          account_id?: string | null;
+          requisition_id: string;
+          gocardless_account_id?: string | null;
+          institution_id: string;
+          institution_name: string;
+          institution_logo?: string | null;
+          iban?: string | null;
+          status?: "pending" | "active" | "expired" | "error";
+          last_synced_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          account_id?: string | null;
+          gocardless_account_id?: string | null;
+          institution_logo?: string | null;
+          iban?: string | null;
+          status?: "pending" | "active" | "expired" | "error";
+          last_synced_at?: string | null;
+        };
+      };
       categorization_rules: {
         Row: {
           id: string;

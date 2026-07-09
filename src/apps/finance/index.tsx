@@ -8,6 +8,7 @@ import {
   PiggyBank,
   BarChart3,
   ListChecks,
+  Building2,
 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -26,6 +27,7 @@ import Rules from "./pages/Rules";
 import Profile from "./pages/Profile";
 import Backup from "./pages/Backup";
 import Setup from "./pages/Setup";
+import BankSync from "./pages/BankSync";
 
 const navItems = [
   { to: "/finance", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -36,6 +38,7 @@ const navItems = [
   { to: "/finance/budgets", label: "Budgetten", icon: PiggyBank },
   { to: "/finance/reports", label: "Rapportages", icon: BarChart3 },
   { to: "/finance/rules", label: "Regels", icon: ListChecks },
+  { to: "/finance/bank-sync", label: "Bank", icon: Building2 },
 ];
 
 function FinanceShell() {
@@ -96,6 +99,7 @@ function FinanceShell() {
           <Route path="profile" element={<Profile />} />
           <Route path="backup" element={<Backup />} />
           <Route path="setup" element={<Setup />} />
+          <Route path="bank-sync" element={<BankSync />} />
         </Routes>
       </div>
     </div>
