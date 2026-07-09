@@ -413,6 +413,50 @@ export default function TransactionsPage() {
       .in("id", ids);
   }
 
+  function updateTransferLocally(transactionId: string, isTransfer: boolean) {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === transactionId ? { ...t, is_transfer: isTransfer } : t))
+    );
+    setDetailTransaction((prev) =>
+      prev && prev.id === transactionId ? { ...prev, is_transfer: isTransfer } : prev
+    );
+  }
+
+  async function toggleTransfer(transactionId: string, isTransfer: boolean) {
+    updateTransferLocally(transactionId, isTransfer);
+    const { error } = await supabase
+      .from("transactions")
+      .update({ is_transfer: isTransfer })
+      .eq("id", transactionId);
+    if (error) {
+      console.error("Fout bij bijwerken overboeking:", error.message);
+      updateTransferLocally(transactionId, !isTransfer);
+      toast("Kon niet bijwerken");
+    } else {
+      toast(isTransfer ? "Gemarkeerd als overboeking" : "Overboeking opgeheven");
+    }
+  }
+
+  async function bulkSetTransfer(isTransfer: boolean) {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setTransactions((prev) =>
+      prev.map((t) => (ids.includes(t.id) ? { ...t, is_transfer: isTransfer } : t))
+    );
+    setSelectedIds(new Set());
+    const { error } = await supabase
+      .from("transactions")
+      .update({ is_transfer: isTransfer })
+      .in("id", ids);
+    if (error) {
+      console.error("Fout bij bulk overboeking:", error.message);
+      toast("Kon niet bijwerken");
+      loadTransactions();
+    } else {
+      toast(isTransfer ? `${ids.length} gemarkeerd als overboeking` : `${ids.length} overboeking opgeheven`);
+    }
+  }
+
   // Find the next uncategorized row index starting from a given index
   function findNextUncategorized(fromIndex: number): number {
     for (let i = fromIndex + 1; i < transactions.length; i++) {
@@ -643,6 +687,21 @@ export default function TransactionsPage() {
               ))}
             </Select>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => bulkSetTransfer(true)}
+            >
+              <ArrowLeftRight className="h-4 w-4 mr-1" />
+              Markeer als overboeking
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => bulkSetTransfer(false)}
+            >
+              Overboeking opheffen
+            </Button>
+            <Button
               variant="ghost"
               size="sm"
               onClick={() => setSelectedIds(new Set())}
@@ -724,9 +783,14 @@ export default function TransactionsPage() {
                         )}
                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                           {t.is_transfer && (
-                            <Badge variant="outline" className="text-xs border-blue-300 text-blue-600">
-                              <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
-                            </Badge>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleTransfer(t.id, false); }}
+                              title="Klik om overboeking ongedaan te maken"
+                            >
+                              <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 cursor-pointer">
+                                <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
+                              </Badge>
+                            </button>
                           )}
                           {editingTransactionId === t.id ? (
                             <CategoryCombobox
@@ -830,9 +894,14 @@ export default function TransactionsPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5">
                             {t.is_transfer && (
-                              <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 whitespace-nowrap">
-                                <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
-                              </Badge>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleTransfer(t.id, false); }}
+                                title="Klik om overboeking ongedaan te maken"
+                              >
+                                <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 whitespace-nowrap cursor-pointer">
+                                  <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
+                                </Badge>
+                              </button>
                             )}
                             {editingTransactionId === t.id ? (
                               <CategoryCombobox
@@ -1063,14 +1132,20 @@ export default function TransactionsPage() {
                   <span className="font-medium">{getAccountName(detailTransaction.account_id)}</span>
                 </div>
 
-                {detailTransaction.is_transfer && (
-                  <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Type</span>
-                    <Badge variant="outline" className="text-xs border-blue-300 text-blue-600">
-                      <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
-                    </Badge>
-                  </div>
-                )}
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">Type</span>
+                  <button onClick={() => toggleTransfer(detailTransaction.id, !detailTransaction.is_transfer)}>
+                    {detailTransaction.is_transfer ? (
+                      <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 cursor-pointer">
+                        <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking — klik om op te heffen
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs cursor-pointer text-muted-foreground">
+                        <ArrowLeftRight className="h-3 w-3 mr-1" />Markeer als overboeking
+                      </Badge>
+                    )}
+                  </button>
+                </div>
 
                 {/* Category with inline editing */}
                 <div className="py-2">

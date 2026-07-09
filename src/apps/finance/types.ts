@@ -259,6 +259,7 @@ export type Database = {
           target_amount: number;
           current_amount: number;
           monthly_contribution: number;
+          account_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -268,6 +269,7 @@ export type Database = {
           target_amount: number;
           current_amount?: number;
           monthly_contribution?: number;
+          account_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -277,6 +279,7 @@ export type Database = {
           target_amount?: number;
           current_amount?: number;
           monthly_contribution?: number;
+          account_id?: string | null;
           created_at?: string;
         };
       };

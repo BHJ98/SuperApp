@@ -15,6 +15,7 @@ import {
   ArrowRight,
   AlertCircle,
   RefreshCw,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/apps/finance/components/ui/button";
 import Link from "@/apps/finance/lib/link";
@@ -45,6 +46,7 @@ type SavingsGoal = {
   target_amount: number;
   current_amount: number;
   monthly_contribution: number;
+  account_id: string | null;
 };
 
 type CategorySpending = {
@@ -58,8 +60,10 @@ type CategorySpending = {
 export default function DashboardPage() {
   const { supabase, categories, accounts } = useAppData();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transferTransactions, setTransferTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [accountBalances, setAccountBalances] = useState<{ account_id: string; balance: number }[]>([]);
   const [threeMonthTransactions, setThreeMonthTransactions] = useState<Transaction[]>([]);
   const [serverTrend, setServerTrend] = useState<{ month: string; income: number; expenses: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +87,7 @@ export default function DashboardPage() {
     const threeMonthsAgo = new Date(year, month - 3, 1);
     const threeMonthStart = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`;
 
-    const [transactionsRes, budgetsRes, goalsRes, trendRes] =
+    const [transactionsRes, transfersRes, budgetsRes, goalsRes, balancesRes, trendRes] =
       await Promise.all([
         supabase
           .from("transactions")
@@ -91,8 +95,18 @@ export default function DashboardPage() {
           .eq("is_transfer", false)
           .gte("date", startOfMonth)
           .lte("date", endStr),
+        // Transfers are excluded above (rightly — they're not income/expense),
+        // but fetched separately so we can still show "moved to savings" as
+        // its own line instead of making that money vanish from the dashboard.
+        supabase
+          .from("transactions")
+          .select("category_id, account_id, amount, date")
+          .eq("is_transfer", true)
+          .gte("date", startOfMonth)
+          .lte("date", endStr),
         supabase.from("budgets").select("id, category_id, amount, period, cost_type").limit(500),
-        supabase.from("savings_goals").select("id, name, target_amount, current_amount, monthly_contribution").limit(100),
+        supabase.from("savings_goals").select("id, name, target_amount, current_amount, monthly_contribution, account_id").limit(100),
+        supabase.from("account_balances").select("account_id, balance"),
         // Server-side aggregation for 3-month trend (falls back gracefully if RPC not available)
         supabase.rpc("get_monthly_income_expenses", {
           p_start_date: threeMonthStart,
@@ -101,8 +115,10 @@ export default function DashboardPage() {
       ]);
 
     if (transactionsRes.data) setTransactions(transactionsRes.data);
+    if (transfersRes.data) setTransferTransactions(transfersRes.data);
     if (budgetsRes.data) setBudgets(budgetsRes.data);
     if (goalsRes.data) setSavingsGoals(goalsRes.data);
+    if (balancesRes.data) setAccountBalances(balancesRes.data);
     // Use server-aggregated trend data or fall back to empty
     if (trendRes.data) {
       setThreeMonthTransactions([]); // No longer needed client-side
@@ -165,10 +181,19 @@ export default function DashboardPage() {
     return categories.find((c) => c.id === id)?.name || "";
   }
 
+  // When a goal is linked to a real account, use that account's live balance
+  // instead of the hand-typed current_amount.
+  function getEffectiveCurrent(goal: SavingsGoal): number {
+    if (!goal.account_id) return goal.current_amount;
+    const balance = accountBalances.find((b) => b.account_id === goal.account_id)?.balance;
+    return balance ?? goal.current_amount;
+  }
+
   // Get savings goal projected date
   function getGoalDate(goal: SavingsGoal): string | null {
     if (goal.monthly_contribution <= 0) return null;
-    const remaining = goal.target_amount - goal.current_amount;
+    const current = getEffectiveCurrent(goal);
+    const remaining = goal.target_amount - current;
     if (remaining <= 0) return "Bereikt!";
     const months = Math.ceil(remaining / goal.monthly_contribution);
     const date = new Date();
@@ -205,6 +230,16 @@ export default function DashboardPage() {
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     return { income, expenses, net: income - expenses };
   }, [transactions]);
+
+  // Money moved into a savings account this month — a transfer (net-zero,
+  // excluded from income/expenses above), but still worth surfacing so it
+  // doesn't just silently disappear from the dashboard.
+  const toSavings = useMemo(() => {
+    const savingsAccountIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
+    return transferTransactions
+      .filter((t) => t.account_id && savingsAccountIds.has(t.account_id) && t.amount > 0)
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transferTransactions, accounts]);
 
   const spendingByCategory = useMemo(() => {
     const rootCats = categories.filter((c) => !c.parent_id);
@@ -341,7 +376,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -368,6 +403,17 @@ export default function DashboardPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <PiggyBank className="h-4 w-4" />
+              <span className="text-sm">Naar sparen</span>
+            </div>
+            <p className="text-2xl font-bold text-blue-600">
+              {formatCurrency(toSavings)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Wallet className="h-4 w-4" />
               <span className="text-sm">Netto</span>
             </div>
             <p
@@ -616,12 +662,10 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {savingsGoals.map((goal) => {
+                  const current = getEffectiveCurrent(goal);
                   const pct =
                     goal.target_amount > 0
-                      ? Math.min(
-                          (goal.current_amount / goal.target_amount) * 100,
-                          100
-                        )
+                      ? Math.min((current / goal.target_amount) * 100, 100)
                       : 0;
                   const goalDate = getGoalDate(goal);
 
@@ -641,8 +685,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span className="font-mono">
-                          {formatCurrency(goal.current_amount)} /{" "}
+                          {formatCurrency(current)} /{" "}
                           {formatCurrency(goal.target_amount)}
+                          {goal.account_id && " (live)"}
                         </span>
                         {goalDate && (
                           <span>

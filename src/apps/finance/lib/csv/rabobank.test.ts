@@ -81,6 +81,36 @@ describe("parseRabobankCSV", () => {
     expect(transactions[0].is_transfer).toBe(true);
   });
 
+  it("flags a transaction as a transfer when the counterparty IBAN is the user's own account", async () => {
+    const csv = [
+      HEADER,
+      row({ seq: "1", date: "2024-05-01", amount: "-200,00", cpIban: "NL99RABO9999999999", cpName: "Spaarrekening", desc1: "Naar spaarrekening" }),
+    ].join("\n");
+    const { transactions } = await parseRabobankCSV(csv, ["NL99RABO9999999999"]);
+    expect(transactions[0].is_transfer).toBe(true);
+  });
+
+  it("flags a transfer between two accounts present in the same CSV, even without a prior ownIbans list", async () => {
+    const csv = [
+      row({ seq: "1", date: "2024-05-01", amount: "-200,00", cpIban: "NL11RABO1111111111", desc1: "Naar spaarrekening" })
+        .replace("NL00RABO0123456789", "NL00RABO0000000000"),
+    ];
+    const csvWithHeader = [HEADER, ...csv].join("\n");
+    const { transactions } = await parseRabobankCSV(csvWithHeader);
+    // Own account IBAN not passed in, and only one account appears in this CSV,
+    // so it cannot be detected as a transfer purely from this file alone.
+    expect(transactions[0].is_transfer).toBe(false);
+  });
+
+  it("does not flag a normal external payment as a transfer", async () => {
+    const csv = [
+      HEADER,
+      row({ seq: "1", date: "2024-05-01", amount: "-12,50", cpIban: "NL22INGB2222222222", cpName: "Albert Heijn", desc1: "Boodschappen" }),
+    ].join("\n");
+    const { transactions } = await parseRabobankCSV(csv, ["NL99RABO9999999999"]);
+    expect(transactions[0].is_transfer).toBe(false);
+  });
+
   it("collects an error for an invalid amount but keeps going", async () => {
     const csv = [
       HEADER,

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, gcFetch, getToken } from '../_shared/gocardless.ts'
+import { corsHeaders, gcFetch, getToken, normaliseIban } from '../_shared/gocardless.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
@@ -47,6 +47,17 @@ Deno.serve(async (req) => {
     const { data: profile } = await adminClient
       .from('profiles').select('household_id').eq('id', user.id).single()
     const householdId = conn.household_id ?? profile?.household_id
+
+    // Own-account IBANs, for auto-detecting internal transfers (net-zero moves
+    // between the household's own accounts, e.g. checking -> savings).
+    const ownIbanSet = new Set<string>()
+    if (householdId) {
+      const { data: ownAccounts } = await adminClient
+        .from('accounts').select('iban').eq('household_id', householdId)
+      for (const a of ownAccounts ?? []) {
+        if (a.iban) ownIbanSet.add(normaliseIban(a.iban))
+      }
+    }
 
     const gcAccountIds: string[] = requisition.accounts ?? []
     let totalImported = 0
@@ -101,6 +112,7 @@ Deno.serve(async (req) => {
           (isExpense ? tx.creditorAccount?.iban : tx.debtorAccount?.iban) ?? null
         const txId: string = tx.transactionId ?? tx.internalTransactionId ?? ''
         const importHash = `gc_${txId || `${gcAccountId}_${tx.bookingDate}_${amount}_${idx}`}`
+        const isTransfer = !!counterparty_iban && ownIbanSet.has(normaliseIban(counterparty_iban))
 
         return {
           account_id: financeAccountId,
@@ -113,7 +125,7 @@ Deno.serve(async (req) => {
           counterparty_iban,
           import_hash: importHash,
           is_categorized: false,
-          is_transfer: false,
+          is_transfer: isTransfer,
         }
       })
 

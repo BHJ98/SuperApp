@@ -18,6 +18,10 @@ const TRANSFER_PATTERNS = [
   /ics\s*creditcard/i,
 ];
 
+function normaliseIban(iban: string | null | undefined): string {
+  return (iban || "").replace(/\s+/g, "").toUpperCase();
+}
+
 async function generateHash(date: string, amount: number, description: string, sequence: string): Promise<string> {
   const str = `${date}|${amount}|${description}|${sequence}`;
   const data = new TextEncoder().encode(str);
@@ -27,7 +31,10 @@ async function generateHash(date: string, amount: number, description: string, s
   return `rabo_${hex.slice(0, 16)}_${date}_${sequence}`;
 }
 
-export async function parseRabobankCSV(csvText: string): Promise<{
+export async function parseRabobankCSV(
+  csvText: string,
+  ownIbans: string[] = []
+): Promise<{
   transactions: RabobankTransaction[];
   errors: string[];
   accountIban: string | null;
@@ -134,7 +141,9 @@ export async function parseRabobankCSV(csvText: string): Promise<{
       const sequence = seqCol ? row[seqCol]?.trim() || String(i) : String(i);
       const importHash = await generateHash(dateStr, amount, description, sequence);
 
-      // Detect creditcard / internal transfers
+      // Creditcard pattern match is known immediately; own-account transfer
+      // detection needs the full set of account IBANs seen in this CSV, which
+      // isn't known until parsing finishes — resolved in the second pass below.
       const isTransfer = TRANSFER_PATTERNS.some((p) => p.test(description));
 
       transactions.push({
@@ -149,6 +158,20 @@ export async function parseRabobankCSV(csvText: string): Promise<{
       });
     } catch {
       errors.push(`Rij ${i + 1}: Kon niet worden verwerkt`);
+    }
+  }
+
+  // Second pass: flag any transaction whose counterparty IBAN is one of the
+  // user's own accounts — either an account already in Finance (ownIbans) or
+  // another account present in this same CSV (accountIbanSet) — as a transfer.
+  // This is a net-zero money move, not real income/expense.
+  const ownIbanSet = new Set([
+    ...ownIbans.map(normaliseIban),
+    ...Array.from(accountIbanSet).map(normaliseIban),
+  ]);
+  for (const t of transactions) {
+    if (!t.is_transfer && t.counterparty_iban && ownIbanSet.has(normaliseIban(t.counterparty_iban))) {
+      t.is_transfer = true;
     }
   }
 

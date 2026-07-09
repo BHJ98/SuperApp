@@ -35,6 +35,7 @@ type SavingsGoal = {
   target_amount: number;
   current_amount: number;
   monthly_contribution: number;
+  account_id: string | null;
 };
 
 type SpendingByCategory = {
@@ -49,10 +50,11 @@ const COST_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function BudgetsPage() {
-  const { supabase, householdId, categories, flatCategories } = useAppData();
+  const { supabase, householdId, categories, flatCategories, accounts } = useAppData();
   const { toast } = useToast();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [accountBalances, setAccountBalances] = useState<{ account_id: string; balance: number }[]>([]);
   const [spending, setSpending] = useState<SpendingByCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,13 @@ export default function BudgetsPage() {
   const [goalTarget, setGoalTarget] = useState("");
   const [goalCurrent, setGoalCurrent] = useState("");
   const [goalMonthly, setGoalMonthly] = useState("");
+  const [goalAccountId, setGoalAccountId] = useState("");
+
+  function getEffectiveCurrent(goal: SavingsGoal): number {
+    if (!goal.account_id) return goal.current_amount;
+    const balance = accountBalances.find((b) => b.account_id === goal.account_id)?.balance;
+    return balance ?? goal.current_amount;
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -88,9 +97,9 @@ export default function BudgetsPage() {
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const endStr = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, "0")}-${String(endOfMonth.getDate()).padStart(2, "0")}`;
 
-      const [budgetsRes, goalsRes, transactionsRes] = await Promise.all([
+      const [budgetsRes, goalsRes, transactionsRes, balancesRes] = await Promise.all([
         supabase.from("budgets").select("id, category_id, amount, period, cost_type").limit(500),
-        supabase.from("savings_goals").select("id, name, target_amount, current_amount, monthly_contribution").limit(100),
+        supabase.from("savings_goals").select("id, name, target_amount, current_amount, monthly_contribution, account_id").limit(100),
         supabase
           .from("transactions")
           .select("category_id, amount")
@@ -98,6 +107,7 @@ export default function BudgetsPage() {
           .gte("date", startOfMonth)
           .lte("date", endStr)
           .lt("amount", 0),
+        supabase.from("account_balances").select("account_id, balance"),
       ]);
 
       if (budgetsRes.error) {
@@ -110,6 +120,7 @@ export default function BudgetsPage() {
       if (transactionsRes.error) console.error("Fout bij laden transacties:", transactionsRes.error.message);
       if (budgetsRes.data) setBudgets(budgetsRes.data);
       if (goalsRes.data) setSavingsGoals(goalsRes.data);
+      if (balancesRes.data) setAccountBalances(balancesRes.data);
 
       // Aggregate spending by category
       if (transactionsRes.data) {
@@ -230,6 +241,7 @@ export default function BudgetsPage() {
     setGoalTarget("");
     setGoalCurrent("0");
     setGoalMonthly("");
+    setGoalAccountId("");
     setGoalDialogOpen(true);
   }
 
@@ -239,6 +251,7 @@ export default function BudgetsPage() {
     setGoalTarget(String(goal.target_amount));
     setGoalCurrent(String(goal.current_amount));
     setGoalMonthly(String(goal.monthly_contribution));
+    setGoalAccountId(goal.account_id ?? "");
     setGoalDialogOpen(true);
   }
 
@@ -249,9 +262,11 @@ export default function BudgetsPage() {
     if (!goalTarget || isNaN(parsedTarget) || parsedTarget <= 0) {
       errors.goalTarget = "Voer een geldig doelbedrag in";
     }
-    const parsedCurrent = parseFloat(goalCurrent || "0");
+    // When linked to an account, the current amount is read live from its
+    // balance — the manual field is hidden, so skip its validation.
+    const parsedCurrent = goalAccountId ? 0 : parseFloat(goalCurrent || "0");
     const parsedMonthly = parseFloat(goalMonthly || "0");
-    if (isNaN(parsedCurrent) || parsedCurrent < 0) errors.goalCurrent = "Mag niet negatief zijn";
+    if (!goalAccountId && (isNaN(parsedCurrent) || parsedCurrent < 0)) errors.goalCurrent = "Mag niet negatief zijn";
     if (isNaN(parsedMonthly) || parsedMonthly < 0) errors.goalMonthly = "Mag niet negatief zijn";
     if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     setFormErrors({});
@@ -264,6 +279,7 @@ export default function BudgetsPage() {
       target_amount: Math.round(parsedTarget * 100) / 100,
       current_amount: Math.round(parsedCurrent * 100) / 100,
       monthly_contribution: Math.round(parsedMonthly * 100) / 100,
+      account_id: goalAccountId || null,
     };
 
     if (editingGoal) {
@@ -305,7 +321,7 @@ export default function BudgetsPage() {
 
   function getMonthsToGoal(goal: SavingsGoal): number | null {
     if (goal.monthly_contribution <= 0) return null;
-    const remaining = goal.target_amount - goal.current_amount;
+    const remaining = goal.target_amount - getEffectiveCurrent(goal);
     if (remaining <= 0) return 0;
     return Math.ceil(remaining / goal.monthly_contribution);
   }
@@ -465,11 +481,15 @@ export default function BudgetsPage() {
           ) : (
             <div className="space-y-4">
               {savingsGoals.map((goal) => {
+                const current = getEffectiveCurrent(goal);
                 const percentage =
                   goal.target_amount > 0
-                    ? Math.min((goal.current_amount / goal.target_amount) * 100, 100)
+                    ? Math.min((current / goal.target_amount) * 100, 100)
                     : 0;
                 const goalDate = getGoalDate(goal);
+                const linkedAccountName = goal.account_id
+                  ? accounts.find((a) => a.id === goal.account_id)?.name
+                  : null;
 
                 return (
                   <SwipeRow
@@ -504,7 +524,7 @@ export default function BudgetsPage() {
                     </div>
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span className="font-mono">
-                        {formatCurrency(goal.current_amount)} / {formatCurrency(goal.target_amount)}
+                        {formatCurrency(current)} / {formatCurrency(goal.target_amount)}
                       </span>
                       <span className="text-muted-foreground">
                         {Math.round(percentage)}%
@@ -518,9 +538,11 @@ export default function BudgetsPage() {
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>
+                        {linkedAccountName && `Gekoppeld aan ${linkedAccountName} (live saldo)`}
+                        {linkedAccountName && goal.monthly_contribution > 0 && " · "}
                         {goal.monthly_contribution > 0
                           ? `${formatCurrency(goal.monthly_contribution)} / maand`
-                          : "Geen maandelijkse inleg"}
+                          : !linkedAccountName && "Geen maandelijkse inleg"}
                       </span>
                       {goalDate && (
                         <span className="font-medium">
@@ -675,18 +697,36 @@ export default function BudgetsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="goalCurrent">Huidig gespaard</Label>
-              <Input
-                id="goalCurrent"
-                type="number"
-                step="0.01"
-                min="0"
-                value={goalCurrent}
-                onChange={(e) => { setGoalCurrent(e.target.value); setFormErrors((p) => { const { goalCurrent, ...rest } = p; return rest; }); }}
-                placeholder="0.00"
-                error={formErrors.goalCurrent}
-              />
+              <Label htmlFor="goalAccount">Gekoppelde rekening (optioneel)</Label>
+              <Select
+                id="goalAccount"
+                value={goalAccountId}
+                onChange={(e) => setGoalAccountId(e.target.value)}
+              >
+                <option value="">Geen — handmatig bijhouden</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Gekoppeld: "Huidig gespaard" komt automatisch uit het live saldo van die rekening.
+              </p>
             </div>
+            {!goalAccountId && (
+              <div>
+                <Label htmlFor="goalCurrent">Huidig gespaard</Label>
+                <Input
+                  id="goalCurrent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={goalCurrent}
+                  onChange={(e) => { setGoalCurrent(e.target.value); setFormErrors((p) => { const { goalCurrent, ...rest } = p; return rest; }); }}
+                  placeholder="0.00"
+                  error={formErrors.goalCurrent}
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="goalMonthly">Maandelijkse inleg</Label>
               <Input

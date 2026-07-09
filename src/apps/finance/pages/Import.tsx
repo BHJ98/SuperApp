@@ -219,7 +219,8 @@ export default function ImportPage() {
     fileReaderRef.current = reader;
     reader.onload = async (e) => {
       const text = e.target?.result as string;
-      const { transactions, errors } = await parseRabobankCSV(text);
+      const ownIbans = accounts.map((a) => a.iban).filter((iban): iban is string => !!iban);
+      const { transactions, errors } = await parseRabobankCSV(text, ownIbans);
 
       const MAX_TRANSACTIONS = 10_000;
       if (transactions.length > MAX_TRANSACTIONS) {
