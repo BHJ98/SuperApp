@@ -58,7 +58,7 @@ export default function WorkoutApp() {
           className="sticky top-[3.25rem] z-[5] flex items-center justify-between gap-3 px-5 py-3 backdrop-blur-md"
           style={{
             borderBottom: "1px solid var(--border)",
-            background: "rgba(10, 10, 15, 0.92)",
+            background: "color-mix(in srgb, var(--base) 92%, transparent)",
           }}
         >
           <div>
@@ -103,7 +103,7 @@ export default function WorkoutApp() {
           className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-2xl justify-around px-2 py-2 backdrop-blur-md"
           style={{
             borderTop: "1px solid var(--border)",
-            background: "rgba(10, 10, 15, 0.95)",
+            background: "color-mix(in srgb, var(--base) 95%, transparent)",
           }}
         >
           {navItems.map((item) => (

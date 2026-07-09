@@ -1,35 +1,144 @@
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Global design tokens ─────────────────────────────────────── */
-:root {
-  color-scheme: dark;
+/* ─── Brand font: Syne (variable, latin) — self-hosted, non-blocking ──────
+   Body/UI text uses the native system stack (see --font-ui); Syne is
+   reserved for brand moments (app names, wordmark) via font-display. */
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/syne-latin-var.woff2") format("woff2");
+}
 
-  /* Base palette */
-  --base:          #0a0a0f;
-  --surface:       #111118;
-  --raised:        #1a1a24;
-  --border:        #2a2a38;
+/* ─── Global design tokens ─────────────────────────────────────────────────
+   Two full themes. Light is the :root default; dark applies via the OS
+   preference (prefers-color-scheme) and either can be forced with
+   data-theme="light|dark" on <html> (set by the toggle in the shell nav,
+   persisted in localStorage — see index.html's inline script). */
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals */
+  --base:          #F7F7F4;
+  --surface:       #FFFFFF;
+  --raised:        #FDFDFC;
+  --subtle:        #F1F1ED;
+  --border:        #E8E8E3;
+  --border-strong: #D6D6CF;
 
   /* Text */
-  --ink:   #f0f0f8;
-  --muted: #8888a0;
-  --faint: #3a3a52;
+  --ink:   #1D1D1B;
+  --muted: #6E6E67;
+  --faint: #9C9C94;
 
-  /* App accent colours */
-  --accent-workout:   #3636BA;
-  --accent-groceries: #E2E4DC;
-  --accent-bakjes:    #A42D2D;
-  --accent-finance:   #264319;
-  --accent-marblebag: #1d8787;
+  /* Monochrome primary (buttons/links use ink, not accent colour) */
+  --primary:       #1D1D1B;
+  --primary-ink:   #FFFFFF;
+  --primary-hover: #333330;
+
+  /* Semantic */
+  --ok:          #3D8B57;  --ok-soft:     #E4F1E9;
+  --warn:        #A97618;  --warn-soft:   #F7EEDC;
+  --danger:      #C24141;  --danger-soft: #F9E7E7;
+  --info:        #3B6FD4;  --info-soft:   #E7EEFA;
+
+  /* App accent colours (light-ground variants) */
+  --accent-workout:   #5558D9;
+  --accent-groceries: #75845F;
+  --accent-finance:   #2E6B45;
+  --accent-bakjes:    #B04343;
+  --accent-marblebag: #1F8B8B;
   --accent:           var(--accent-workout);
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(29, 29, 27, 0.05), 0 1px 3px rgba(29, 29, 27, 0.06);
+  --shadow-2: 0 2px 4px rgba(29, 29, 27, 0.05), 0 8px 24px rgba(29, 29, 27, 0.09);
+  --shadow-3: 0 4px 8px rgba(29, 29, 27, 0.06), 0 16px 48px rgba(29, 29, 27, 0.14);
+
+  /* Type */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-brand: "Syne", var(--font-ui);
 
   /* Legacy aliases — keeps bakjes/groceries component internals working */
   --bg:   var(--base);
   --card: var(--surface);
   --gold: var(--accent-groceries);
+}
+
+/* Dark values, shared by the media query and the explicit override so they
+   can't drift apart. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --base:          #141416;
+    --surface:       #1C1C1F;
+    --raised:        #242428;
+    --subtle:        #232326;
+    --border:        #2E2E33;
+    --border-strong: #3E3E45;
+
+    --ink:   #ECECE8;
+    --muted: #97979E;
+    --faint: #6A6A72;
+
+    --primary:       #ECECE8;
+    --primary-ink:   #1A1A1C;
+    --primary-hover: #FFFFFF;
+
+    --ok:     #5FBA7D;  --ok-soft:     rgba(95, 186, 125, 0.14);
+    --warn:   #D9A83F;  --warn-soft:   rgba(217, 168, 63, 0.14);
+    --danger: #E06C6C;  --danger-soft: rgba(224, 108, 108, 0.14);
+    --info:   #6E9AE8;  --info-soft:   rgba(110, 154, 232, 0.14);
+
+    --accent-workout:   #8B8DF2;
+    --accent-groceries: #A9B88E;
+    --accent-finance:   #7BC496;
+    --accent-bakjes:    #D97F7F;
+    --accent-marblebag: #4FBDBD;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --base:          #141416;
+  --surface:       #1C1C1F;
+  --raised:        #242428;
+  --subtle:        #232326;
+  --border:        #2E2E33;
+  --border-strong: #3E3E45;
+
+  --ink:   #ECECE8;
+  --muted: #97979E;
+  --faint: #6A6A72;
+
+  --primary:       #ECECE8;
+  --primary-ink:   #1A1A1C;
+  --primary-hover: #FFFFFF;
+
+  --ok:     #5FBA7D;  --ok-soft:     rgba(95, 186, 125, 0.14);
+  --warn:   #D9A83F;  --warn-soft:   rgba(217, 168, 63, 0.14);
+  --danger: #E06C6C;  --danger-soft: rgba(224, 108, 108, 0.14);
+  --info:   #6E9AE8;  --info-soft:   rgba(110, 154, 232, 0.14);
+
+  --accent-workout:   #8B8DF2;
+  --accent-groceries: #A9B88E;
+  --accent-finance:   #7BC496;
+  --accent-bakjes:    #D97F7F;
+  --accent-marblebag: #4FBDBD;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
 /* Per-app accent cascade (set via data-app attribute on the app root) */
@@ -45,15 +154,13 @@
 .bakjes-app {
   --bg:     var(--base);
   --card:   var(--surface);
-  --ink:    #f0f0f8;
-  --border: #2a2a38;
   --accent: var(--accent-bakjes);
 }
 
-/* Native form controls render with the UA default text color, which on a
-   dark background is unreadable. Force them to inherit the app ink, and
-   give <option> popups an explicit dark surface so the dropdown items
-   are legible in Chromium. */
+/* Native form controls render with the UA default text color, which can be
+   unreadable against the themed background. Force them to inherit the app
+   ink, and give <option> popups an explicit themed surface so the dropdown
+   items are legible in Chromium. */
 .bakjes-app input,
 .bakjes-app select,
 .bakjes-app textarea {
@@ -75,56 +182,70 @@ body {
   margin: 0;
   background: var(--base);
   color: var(--ink);
-  font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ─── Component layer ───────────────────────────────────────────── */
 @layer components {
   .card {
-    @apply rounded-2xl p-4;
+    @apply rounded-xl p-4;
     background: var(--surface);
     border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5
       font-medium transition active:scale-[0.98] disabled:opacity-40;
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
   }
 
   .btn-primary {
-    @apply btn text-white;
-    background: var(--accent);
+    @apply btn;
+    background: var(--primary);
+    color: var(--primary-ink);
   }
   .btn-primary:hover {
-    filter: brightness(1.12);
+    background: var(--primary-hover);
   }
 
   .btn-ghost {
     @apply btn;
     color: var(--ink);
-    background: var(--raised);
-    border: 1px solid var(--border);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-1);
   }
   .btn-ghost:hover {
-    border-color: var(--muted);
+    border-color: var(--faint);
   }
 
   .btn-danger {
-    @apply btn bg-red-600/80 text-white hover:bg-red-600;
+    @apply btn text-white;
+    background: var(--danger);
+  }
+  .btn-danger:hover {
+    filter: brightness(1.08);
   }
 
   .input {
-    @apply w-full rounded-xl px-3 py-2.5 outline-none;
-    background: var(--base);
-    border: 1px solid var(--border);
+    @apply w-full rounded-lg px-3 py-2.5 outline-none;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
     color: var(--ink);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
   }
   .input::placeholder {
-    color: var(--muted);
+    color: var(--faint);
   }
   .input:focus {
-    border-color: var(--accent);
+    border-color: var(--info);
+    box-shadow: 0 0 0 3px var(--info-soft);
   }
 
   .label {
@@ -134,7 +255,7 @@ body {
 
   .chip {
     @apply inline-block rounded-full px-2 py-0.5 text-xs;
-    background: var(--raised);
+    background: var(--subtle);
     border: 1px solid var(--border);
     color: var(--muted);
   }

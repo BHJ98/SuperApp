@@ -9,13 +9,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon.svg", "fonts/syne-latin-var.woff2"],
       manifest: {
         name: "SuperApp",
         short_name: "SuperApp",
         description: "Household tools — workout, groceries, finance, bakjes — in one PWA",
-        theme_color: "#0f172a",
-        background_color: "#0f172a",
+        theme_color: "#141416",
+        background_color: "#141416",
         display: "standalone",
         start_url: "/",
         icons: [

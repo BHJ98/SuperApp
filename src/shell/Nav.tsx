@@ -2,14 +2,41 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 
 const appLinks = [
-  { to: "/workout",   label: "Workout",      accent: "#3636BA" },
-  { to: "/groceries", label: "Boodschappen", accent: "#E2E4DC" },
-  { to: "/finance",   label: "Finance",      accent: "#264319" },
-  { to: "/bakjes",    label: "Bakjes",        accent: "#A42D2D" },
-  { to: "/marblebag", label: "Marblebag",    accent: "#1d8787" },
+  { to: "/workout",   label: "Workout",      accent: "var(--accent-workout)" },
+  { to: "/groceries", label: "Boodschappen", accent: "var(--accent-groceries)" },
+  { to: "/finance",   label: "Finance",      accent: "var(--accent-finance)" },
+  { to: "/bakjes",    label: "Bakjes",        accent: "var(--accent-bakjes)" },
+  { to: "/marblebag", label: "Marblebag",    accent: "var(--accent-marblebag)" },
 ];
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button
+      onClick={toggle}
+      className="p-2 rounded-lg transition-opacity hover:opacity-60"
+      aria-label={theme === "dark" ? "Schakel naar licht thema" : "Schakel naar donker thema"}
+      title={theme === "dark" ? "Licht thema" : "Donker thema"}
+      style={{ color: "var(--muted)" }}
+    >
+      {theme === "dark" ? (
+        /* sun */
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="12" cy="12" r="4.2" />
+          <path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19" />
+        </svg>
+      ) : (
+        /* moon */
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 export function Nav() {
   const [open, setOpen] = useState(false);
@@ -21,7 +48,7 @@ export function Nav() {
       <header
         className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 backdrop-blur-md"
         style={{
-          background: "rgba(10, 10, 15, 0.88)",
+          background: "color-mix(in srgb, var(--base) 88%, transparent)",
           borderBottom: "1px solid var(--border)",
         }}
       >
@@ -33,15 +60,18 @@ export function Nav() {
           SuperApp
         </Link>
 
-        <button
-          onClick={() => setOpen(true)}
-          className="flex flex-col justify-center gap-[5px] p-2 rounded-lg transition-opacity hover:opacity-60"
-          aria-label="Open menu"
-        >
-          <span className="block h-px w-5" style={{ background: "var(--ink)" }} />
-          <span className="block h-px w-5" style={{ background: "var(--ink)" }} />
-          <span className="block h-px w-5" style={{ background: "var(--ink)" }} />
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <button
+            onClick={() => setOpen(true)}
+            className="flex flex-col justify-center gap-[5px] p-2 rounded-lg transition-opacity hover:opacity-60"
+            aria-label="Open menu"
+          >
+            <span className="block h-px w-5" style={{ background: "var(--ink)" }} />
+            <span className="block h-px w-5" style={{ background: "var(--ink)" }} />
+            <span className="block h-px w-5" style={{ background: "var(--ink)" }} />
+          </button>
+        </div>
       </header>
 
       {/* ── Full-screen overlay menu ── */}

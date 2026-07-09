@@ -5,25 +5,25 @@ const apps = [
     to: "/workout",
     label: "Workout",
     description: "Routines, sets & progressive overload",
-    accent: "#3636BA",
+    accent: "var(--accent-workout)",
   },
   {
     to: "/groceries",
     label: "Boodschappen",
     description: "Recipes, meal planning & shopping",
-    accent: "#E2E4DC",
+    accent: "var(--accent-groceries)",
   },
   {
     to: "/finance",
     label: "Finance",
     description: "Spending, accounts & budgets",
-    accent: "#264319",
+    accent: "var(--accent-finance)",
   },
   {
     to: "/bakjes",
     label: "Bakjes",
     description: "Budget envelope method",
-    accent: "#A42D2D",
+    accent: "var(--accent-bakjes)",
   },
 ];
 

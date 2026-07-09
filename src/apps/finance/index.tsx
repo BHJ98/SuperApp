@@ -53,7 +53,7 @@ function FinanceShell() {
         className="sticky top-[3.25rem] z-[5] backdrop-blur-md"
         style={{
           borderBottom: "1px solid var(--border)",
-          background: "rgba(10, 10, 15, 0.92)",
+          background: "color-mix(in srgb, var(--base) 92%, transparent)",
         }}
       >
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center gap-1 flex-wrap">
