@@ -97,7 +97,7 @@ export default function BackupPage() {
 
       toast("Back-up gedownload");
     } catch {
-      toast("Kon back-up niet maken. Probeer het opnieuw.");
+      toast("Kon back-up niet maken. Probeer het opnieuw.", "error");
     }
 
     setExporting(false);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "../providers";
 import type { AgendaEvent } from "../lib/types";
 import { eventsInRange } from "../lib/storage/events";
@@ -164,13 +165,13 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium">Nog geen events in deze week</h2>
           <p className="text-sm text-slate-500">
             Exporteer je Google Calendar als ICS en upload het bestand in{" "}
-            <a href="/bakjes/instellingen" className="underline">
+            <Link to="/bakjes/instellingen" className="underline">
               Instellingen
-            </a>
+            </Link>
             . Daarna kun je beginnen met{" "}
-            <a href="/bakjes/inventariseren" className="underline">
+            <Link to="/bakjes/inventariseren" className="underline">
               Inventariseren
-            </a>
+            </Link>
             .
           </p>
         </div>
@@ -179,13 +180,13 @@ export default function Dashboard() {
       {hasEvents && !hasBakjes && (
         <div className="card p-5 text-sm">
           Events zijn ingeladen. Maak nu je eerste bakjes aan op{" "}
-          <a href="/bakjes/bakjes" className="underline">
+          <Link to="/bakjes/bakjes" className="underline">
             Bakjes
-          </a>{" "}
+          </Link>{" "}
           (of direct in{" "}
-          <a href="/bakjes/inventariseren" className="underline">
+          <Link to="/bakjes/inventariseren" className="underline">
             Inventariseren
-          </a>
+          </Link>
           ).
         </div>
       )}
@@ -276,9 +277,9 @@ export default function Dashboard() {
                   <span className="text-sm tabular-nums text-slate-600 dark:text-slate-400">
                     {formatteerUren(report.ongecategoriseerd.minuten)}
                   </span>
-                  <a href="/bakjes/inventariseren" className="text-xs underline">
+                  <Link to="/bakjes/inventariseren" className="text-xs underline">
                     toewijzen
-                  </a>
+                  </Link>
                 </li>
               )}
               <li className="flex items-center gap-3 pt-2 mt-1 border-t border-[var(--border)] px-1 font-medium">
@@ -387,9 +388,9 @@ export default function Dashboard() {
           {!heeftTargets ? (
             <div className="text-sm text-slate-600 dark:text-slate-400">
               Nog geen targets ingesteld. Ga naar{" "}
-              <a href="/bakjes/bakjes" className="underline">
+              <Link to="/bakjes/bakjes" className="underline">
                 Bakjes
-              </a>{" "}
+              </Link>{" "}
               en vul per bakje een 'target uren per week' in.
             </div>
           ) : periodeEvents.length === 0 ? (

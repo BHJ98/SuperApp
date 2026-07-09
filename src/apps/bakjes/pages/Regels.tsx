@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "../providers";
 import type { Regel } from "../lib/types";
 
@@ -53,7 +54,7 @@ export default function RegelsPage() {
         <h2 className="text-lg font-medium mb-3">Nieuwe regel</h2>
         {data.bakjes.length === 0 ? (
           <p className="text-sm text-slate-500">
-            Maak eerst een bakje aan op <a href="/bakjes/bakjes" className="underline">Bakjes</a>.
+            Maak eerst een bakje aan op <Link to="/bakjes/bakjes" className="underline">Bakjes</Link>.
           </p>
         ) : (
           <form className="flex gap-2 items-end flex-wrap" onSubmit={toevoegen}>

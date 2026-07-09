@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "../providers";
 import type { Bakje } from "../lib/types";
 import { BAKJE_KLEUREN } from "../lib/types";
@@ -168,9 +169,9 @@ export default function BakjesPage() {
         {data.bakjes.length === 0 && (
           <div className="card p-5 text-sm text-slate-600 dark:text-slate-400">
             Nog geen bakjes. Maak hierboven je eerste bakje aan, of ga naar{" "}
-            <a href="/bakjes/inventariseren" className="underline">
+            <Link to="/bakjes/inventariseren" className="underline">
               Inventariseren
-            </a>{" "}
+            </Link>{" "}
             en maak ze aan tijdens het toewijzen.
           </div>
         )}

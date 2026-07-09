@@ -267,7 +267,7 @@ export default function TransactionsPage() {
     if (error) {
       console.error("Fout bij toewijzen categorie:", error.message);
       updateTransactionLocally(smartTransaction.id, null);
-      toast("Kon categorie niet toewijzen");
+      toast("Kon categorie niet toewijzen", "error");
     } else {
       toast("Categorie toegewezen");
     }
@@ -431,7 +431,7 @@ export default function TransactionsPage() {
     if (error) {
       console.error("Fout bij bijwerken overboeking:", error.message);
       updateTransferLocally(transactionId, !isTransfer);
-      toast("Kon niet bijwerken");
+      toast("Kon niet bijwerken", "error");
     } else {
       toast(isTransfer ? "Gemarkeerd als overboeking" : "Overboeking opgeheven");
     }
@@ -450,7 +450,7 @@ export default function TransactionsPage() {
       .in("id", ids);
     if (error) {
       console.error("Fout bij bulk overboeking:", error.message);
-      toast("Kon niet bijwerken");
+      toast("Kon niet bijwerken", "error");
       loadTransactions();
     } else {
       toast(isTransfer ? `${ids.length} gemarkeerd als overboeking` : `${ids.length} overboeking opgeheven`);

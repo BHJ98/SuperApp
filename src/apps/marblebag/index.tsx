@@ -62,7 +62,7 @@ export default function Marblebag() {
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />
 
   return (
-    <div className="-mx-4 -mt-4">
+    <div className="-mx-4 -mt-4 marblebag-app" data-app="marblebag">
       <TheBag />
     </div>
   )

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -43,7 +44,7 @@ export function BakjesTargetVergelijking({
   if (rapport.perBakje.length === 0) {
     return (
       <div className="text-sm text-slate-500">
-        Nog geen targets ingesteld. Ga naar <a href="/bakjes" className="underline">Bakjes</a> en
+        Nog geen targets ingesteld. Ga naar <Link to="/bakjes/bakjes" className="underline">Bakjes</Link> en
         vul per bakje een 'target uren per week' in om de vergelijking te zien.
       </div>
     );
@@ -232,9 +233,9 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
       {(hasZonderTarget || hasOngecat) && (
         <p className="px-1 italic">
           Tip: zet een target op alle bakjes en wijs ongecategoriseerde events toe op{" "}
-          <a href="/inventariseren" className="underline">
+          <Link to="/bakjes/inventariseren" className="underline">
             Inventariseren
-          </a>{" "}
+          </Link>{" "}
           om het volledige beeld te zien.
         </p>
       )}

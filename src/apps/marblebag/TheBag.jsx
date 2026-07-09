@@ -177,29 +177,40 @@ function computeOrgasmStats(orgasmLog) {
 function GS() {
   useEffect(() => {
     const id = 'the-bag-gs'
-    if (document.getElementById(id)) return
-    const s = document.createElement('style')
-    s.id = id
-    s.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@300;400;500;600&display=swap');
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html { background: #08080d; }
-      body { background: #08080d; color: #f3f4f6; font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-      button { font-family: inherit; cursor: pointer; border: none; background: none; }
-      textarea { font-family: inherit; }
-      ::-webkit-scrollbar { width: 4px; }
-      ::-webkit-scrollbar-track { background: #0c0c14; }
-      ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 2px; }
-      @keyframes pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.12);opacity:1} }
-      @keyframes revPop { 0%{transform:scale(.3) rotate(-20deg);opacity:0} 70%{transform:scale(1.15) rotate(5deg)} 100%{transform:scale(1) rotate(0deg);opacity:1} }
-      @keyframes popIn { 0%{transform:scale(.65) translateY(48px);opacity:0} 100%{transform:scale(1) translateY(0);opacity:1} }
-      @keyframes slideUp { 0%{transform:translateY(14px);opacity:0} 100%{transform:translateY(0);opacity:1} }
-      @keyframes toastIn { 0%{transform:translateX(-50%) translateY(20px);opacity:0} 100%{transform:translateX(-50%) translateY(0);opacity:1} }
-      @keyframes shrink { 0%{width:100%} 100%{width:0%} }
-      @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }
-      @keyframes shimmer { 0%,100%{opacity:.35} 50%{opacity:1} }
-    `
-    document.head.appendChild(s)
+    let s = document.getElementById(id)
+    let created = false
+    if (!s) {
+      s = document.createElement('style')
+      s.id = id
+      // Scoped to .marblebag-app so this never leaks into other SuperApp
+      // routes (previously reset *, html, body globally with no cleanup).
+      s.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@300;400;500;600&display=swap');
+        .marblebag-app, .marblebag-app *, .marblebag-app *::before, .marblebag-app *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        .marblebag-app { background: #08080d; color: #f3f4f6; font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+        .marblebag-app button { font-family: inherit; cursor: pointer; border: none; background: none; }
+        .marblebag-app textarea { font-family: inherit; }
+        .marblebag-app ::-webkit-scrollbar { width: 4px; }
+        .marblebag-app ::-webkit-scrollbar-track { background: #0c0c14; }
+        .marblebag-app ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 2px; }
+        @keyframes pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.12);opacity:1} }
+        @keyframes revPop { 0%{transform:scale(.3) rotate(-20deg);opacity:0} 70%{transform:scale(1.15) rotate(5deg)} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+        @keyframes popIn { 0%{transform:scale(.65) translateY(48px);opacity:0} 100%{transform:scale(1) translateY(0);opacity:1} }
+        @keyframes slideUp { 0%{transform:translateY(14px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+        @keyframes toastIn { 0%{transform:translateX(-50%) translateY(20px);opacity:0} 100%{transform:translateX(-50%) translateY(0);opacity:1} }
+        @keyframes shrink { 0%{width:100%} 100%{width:0%} }
+        @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }
+        @keyframes shimmer { 0%,100%{opacity:.35} 50%{opacity:1} }
+      `
+      document.head.appendChild(s)
+      created = true
+    }
+    return () => {
+      // Only remove the tag if this mount is the one that created it, so a
+      // remount (e.g. React StrictMode double-invoke) doesn't tear down a
+      // still-in-use stylesheet out from under a sibling instance.
+      if (created) s.remove()
+    }
   }, [])
   return null
 }
@@ -1668,12 +1679,16 @@ export default function App() {
 
       setUndoData({ prevState, color })
       if (color === 'gold') {
-        setTimeout(() => { setShowGold(true); localAction.current = false }, 0)
+        setTimeout(() => setShowGold(true), 0)
       } else if (color === 'red') {
-        setTimeout(() => { setSpinData({ color: 'red', consequence, consequenceCategory, autoReset: false, ruined: false }); localAction.current = false }, 0)
+        setTimeout(() => setSpinData({ color: 'red', consequence, consequenceCategory, autoReset: false, ruined: false }), 0)
       } else {
-        setTimeout(() => { setDrawResult({ color, consequence, consequenceCategory, autoReset, ruined }); localAction.current = false }, 0)
+        setTimeout(() => setDrawResult({ color, consequence, consequenceCategory, autoReset, ruined }), 0)
       }
+      // Matches the 500ms window used by every other mutation in this file —
+      // keeps a just-drawn marble from being overwritten by an incoming
+      // realtime update before the autosave (600ms debounce) has persisted it.
+      setTimeout(() => { localAction.current = false }, 500)
       return next
     })
   }
@@ -1955,7 +1970,7 @@ export default function App() {
               {isKH ? 'Keyholder' : 'Him'}
             </div>
             <button
-              onClick={() => { sessionStorage.removeItem('bag-role'); setRole(null) }}
+              onClick={() => { localStorage.removeItem('bag-role'); setRole(null) }}
               style={{ background: 'none', border: 'none', color: '#4b5563', fontSize: 12, cursor: 'pointer', padding: '4px 8px' }}
             >
               Switch

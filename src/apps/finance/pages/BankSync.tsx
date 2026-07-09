@@ -67,7 +67,7 @@ export default function BankSyncPage() {
     setLoadingInstitutions(true)
     const { data, error } = await supabase.functions.invoke('bank-institutions')
     if (!error && Array.isArray(data)) setInstitutions(data)
-    else toast('Banken laden mislukt')
+    else toast('Banken laden mislukt', 'error')
     setLoadingInstitutions(false)
   }
 
@@ -78,7 +78,7 @@ export default function BankSyncPage() {
       body: { institution_id, redirect_url },
     })
     if (error || !data?.link) {
-      toast(`Verbinding mislukt: ${error?.message ?? 'Onbekende fout'}`)
+      toast(`Verbinding mislukt: ${error?.message ?? 'Onbekende fout'}`, 'error')
       setConnecting(false)
       return
     }
@@ -95,7 +95,7 @@ export default function BankSyncPage() {
     setSyncing(null)
 
     if (error) {
-      toast(`Sync mislukt: ${error.message}`)
+      toast(`Sync mislukt: ${error.message}`, 'error')
     } else {
       toast(
         data.imported > 0

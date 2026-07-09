@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAppData } from "../providers";
 import type { AgendaEvent, AppData, Bakje } from "../lib/types";
 import { allEvents } from "../lib/storage/events";
@@ -92,9 +93,9 @@ export default function InventariserenPage() {
         <h1 className="text-xl font-semibold mb-2">Nog geen events</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Upload eerst een ICS-bestand op de{" "}
-          <a href="/bakjes/instellingen" className="underline">
+          <Link to="/bakjes/instellingen" className="underline">
             instellingenpagina
-          </a>
+          </Link>
           .
         </p>
       </div>
@@ -155,7 +156,7 @@ export default function InventariserenPage() {
       </div>
       {data.bakjes.length === 0 && (
         <div className="card p-4 text-sm">
-          Nog geen bakjes — maak er een aan op <a href="/bakjes/bakjes" className="underline">Bakjes</a>.
+          Nog geen bakjes — maak er een aan op <Link to="/bakjes/bakjes" className="underline">Bakjes</Link>.
         </div>
       )}
       <div className="space-y-2">

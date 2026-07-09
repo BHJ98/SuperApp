@@ -10,6 +10,7 @@ interface AuthGateProps {
 type GateState =
   | { kind: "loading" }
   | { kind: "passthrough" }
+  | { kind: "error" }
   | { kind: "signedOut"; oauthError?: string }
   | { kind: "signedIn"; session: Session };
 
@@ -17,18 +18,27 @@ export function AuthGate({ children }: AuthGateProps) {
   const [state, setState] = useState<GateState>(
     isSupabaseConfigured ? { kind: "loading" } : { kind: "passthrough" },
   );
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!supabase) return;
     let active = true;
+    setState({ kind: "loading" });
 
     const oauthError = readOauthErrorFromHash();
     if (oauthError) history.replaceState(null, "", window.location.pathname);
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setState(resolve(data.session, oauthError));
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setState(resolve(data.session, oauthError));
+      })
+      .catch((err) => {
+        console.error("Failed to load auth session:", err);
+        if (!active) return;
+        setState({ kind: "error" });
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setState(resolve(session, oauthError));
@@ -38,7 +48,7 @@ export function AuthGate({ children }: AuthGateProps) {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [retryCount]);
 
   if (state.kind === "passthrough") {
     return (
@@ -49,6 +59,9 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
   if (state.kind === "loading") return <CenteredMessage>Loading…</CenteredMessage>;
+  if (state.kind === "error") {
+    return <LoadError onRetry={() => setRetryCount((n) => n + 1)} />;
+  }
   if (state.kind === "signedOut") {
     return state.oauthError ? <Denied reason={state.oauthError} /> : <SignIn />;
   }
@@ -137,6 +150,33 @@ function Denied({ reason }: { reason: string }) {
         </p>
         <button onClick={onTryAgain} className="btn-ghost w-full">
           Try a different account
+        </button>
+      </div>
+    </CenteredMessage>
+  );
+}
+
+function LoadError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <CenteredMessage>
+      <div
+        className="w-full max-w-sm rounded-2xl p-8 text-center"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <h1
+          className="font-display text-2xl font-bold tracking-tight mb-3"
+          style={{ color: "var(--ink)" }}
+        >
+          Kon niet verbinden
+        </h1>
+        <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
+          Controleer je internetverbinding en probeer het opnieuw.
+        </p>
+        <button onClick={onRetry} className="btn-primary w-full">
+          Opnieuw proberen
         </button>
       </div>
     </CenteredMessage>
