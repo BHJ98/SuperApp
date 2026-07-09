@@ -246,7 +246,11 @@ export default function BankSyncPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => deleteConnection(conn.id)}
+                      onClick={() => {
+                        if (confirm(`Koppeling met ${conn.institution_name} verwijderen? Je moet dan opnieuw autoriseren om te kunnen syncen.`)) {
+                          deleteConnection(conn.id)
+                        }
+                      }}
                       disabled={deleting === conn.id}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />

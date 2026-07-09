@@ -173,7 +173,7 @@ export default function InstellingenPage() {
 
       <section className="card p-5 space-y-3">
         <h2 className="text-lg font-medium">Synchronisatie</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Je bakjes-data wordt automatisch opgeslagen in SuperApp's gedeelde Supabase
           project. Wijzigingen worden binnen 1 seconde gesynchroniseerd. Geen aparte
           inlog of Drive-koppeling nodig.
@@ -185,7 +185,7 @@ export default function InstellingenPage() {
 
       <section className="card p-5 space-y-3">
         <h2 className="text-lg font-medium">Backup &amp; herstel</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Download een JSON-bestand met al je bakjes, regels, targets, toewijzingen,
           reflecties, intakes en instellingen. Upload een eerder backup-bestand
           (bijvoorbeeld vanuit de oude Bakjesmethode-app) om alles terug te zetten.
@@ -200,7 +200,7 @@ export default function InstellingenPage() {
           </button>
           <label
             className={`px-3 py-1.5 rounded border border-[var(--border)] text-sm cursor-pointer ${
-              busy ? "opacity-60" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+              busy ? "opacity-60" : "hover:bg-slate-800"
             }`}
           >
             Upload backup…
@@ -229,7 +229,7 @@ export default function InstellingenPage() {
 
       <section className="card p-5 space-y-3">
         <h2 className="text-lg font-medium">Werkuren</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Events binnen deze uren tellen als 'echt werk'. Events die buiten dit venster
           (deels) plaatsvinden worden gemarkeerd als 'overloop' — ze tellen wel mee in
           percentages, maar zijn zichtbaar als signaal.
@@ -246,7 +246,7 @@ export default function InstellingenPage() {
         <h2 className="text-lg font-medium">Google Calendar (live sync)</h2>
         {CALENDAR_AVAILABLE ? (
           <>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-slate-400">
               Direct uit Google Calendar synchroniseren — geen ICS-export nodig.
               Vraagt eenmalig toestemming (alleen-lezen, alleen jouw primaire
               calendar). De token leeft ongeveer een uur; klik daarna opnieuw
@@ -255,7 +255,7 @@ export default function InstellingenPage() {
             <div className="flex flex-wrap gap-2 items-center">
               {hasCalendarToken ? (
                 <>
-                  <span className="inline-flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <span className="inline-flex items-center gap-2 text-sm text-green-400">
                     <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />{" "}
                     Verbonden
                   </span>
@@ -301,7 +301,7 @@ export default function InstellingenPage() {
 
       <section className="card p-5 space-y-3">
         <h2 className="text-lg font-medium">Agenda importeren (ICS)</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Exporteer je Google Calendar als .ics en upload het hier. Events worden lokaal
           opgeslagen op dit apparaat; elke upload vervangt de hele voorraad. Periodieke
           re-import houdt je dashboard up-to-date.
@@ -331,7 +331,7 @@ export default function InstellingenPage() {
             Events wissen
           </button>
           {eventCount !== null && (
-            <span className="text-sm text-slate-600 dark:text-slate-400">
+            <span className="text-sm text-slate-400">
               {eventCount} events opgeslagen
             </span>
           )}
@@ -339,7 +339,7 @@ export default function InstellingenPage() {
       </section>
 
       {status && (
-        <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded px-3 py-2">
+        <p className="text-sm text-slate-300 bg-slate-800 rounded px-3 py-2">
           {status}
         </p>
       )}

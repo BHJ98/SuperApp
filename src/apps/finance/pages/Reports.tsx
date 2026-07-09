@@ -225,9 +225,7 @@ export default function ReportsPage() {
     const amountFilter = includeIncome
       ? (_t: Transaction) => true
       : (t: Transaction) => t.amount < 0;
-    const amountValue = includeIncome
-      ? (t: Transaction) => Math.abs(t.amount)
-      : (t: Transaction) => Math.abs(t.amount);
+    const amountValue = (t: Transaction) => Math.abs(t.amount);
 
     return rootCats
       .map((rootCat) => {

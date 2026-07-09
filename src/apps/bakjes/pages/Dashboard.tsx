@@ -231,7 +231,7 @@ export default function Dashboard() {
                         setOpenWeekBakjeId(isOpen ? null : b.bakje.id)
                       }
                       aria-expanded={isOpen}
-                      className="w-full flex items-center gap-3 py-1.5 px-1 rounded hover:bg-slate-50 dark:hover:bg-slate-900/40 text-left"
+                      className="w-full flex items-center gap-3 py-1.5 px-1 rounded hover:bg-slate-900/40 text-left"
                     >
                       <span
                         className="w-3 h-3 rounded-full inline-block shrink-0"
@@ -250,7 +250,7 @@ export default function Dashboard() {
                       </span>
                       {!sluitOverloopUitWeek && b.minutenOverloop > 0 && (
                         <span
-                          className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          className="text-xs px-2 py-0.5 rounded bg-amber-900/40 text-amber-200"
                           title="Aantal minuten buiten werkuren"
                         >
                           +{formatteerUren(b.minutenOverloop)} overloop
@@ -271,10 +271,10 @@ export default function Dashboard() {
                 <li className="flex items-center gap-3 pt-2 mt-1 border-t border-[var(--border)] px-1">
                   <span className="w-3 h-3 rounded-full inline-block bg-slate-400" aria-hidden />
                   <span className="w-3 shrink-0" aria-hidden />
-                  <span className="flex-1 text-slate-600 dark:text-slate-400">
+                  <span className="flex-1 text-slate-400">
                     Ongecategoriseerd
                   </span>
-                  <span className="text-sm tabular-nums text-slate-600 dark:text-slate-400">
+                  <span className="text-sm tabular-nums text-slate-400">
                     {formatteerUren(report.ongecategoriseerd.minuten)}
                   </span>
                   <Link to="/bakjes/inventariseren" className="text-xs underline">
@@ -317,7 +317,7 @@ export default function Dashboard() {
                   className={`px-3 py-1 ${
                     periodeModus === "preset"
                       ? "bg-[var(--accent)] text-white"
-                      : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                      : "hover:bg-slate-800"
                   }`}
                 >
                   Vast
@@ -328,7 +328,7 @@ export default function Dashboard() {
                   className={`px-3 py-1 ${
                     periodeModus === "aangepast"
                       ? "bg-[var(--accent)] text-white"
-                      : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                      : "hover:bg-slate-800"
                   }`}
                 >
                   Aangepast
@@ -386,7 +386,7 @@ export default function Dashboard() {
           </div>
 
           {!heeftTargets ? (
-            <div className="text-sm text-slate-600 dark:text-slate-400">
+            <div className="text-sm text-slate-400">
               Nog geen targets ingesteld. Ga naar{" "}
               <Link to="/bakjes/bakjes" className="underline">
                 Bakjes

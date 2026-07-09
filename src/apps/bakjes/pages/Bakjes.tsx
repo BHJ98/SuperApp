@@ -96,7 +96,7 @@ export default function BakjesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-2xl font-semibold">Bakjes</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-slate-400">
             Grootenboer adviseert 4–6 bakjes. Meer dan 6 is een signaal dat je functie te
             versnipperd is.{" "}
             {tePlaatsen >= 0 ? (
@@ -147,7 +147,7 @@ export default function BakjesPage() {
                   key={k}
                   onClick={() => setKleur(k)}
                   className={`w-7 h-7 rounded-full border-2 ${
-                    kleur === k ? "border-slate-900 dark:border-white" : "border-transparent"
+                    kleur === k ? "border-white" : "border-transparent"
                   }`}
                   style={{ backgroundColor: k }}
                   aria-label={k}
@@ -167,7 +167,7 @@ export default function BakjesPage() {
 
       <section className="space-y-3 print:hidden">
         {data.bakjes.length === 0 && (
-          <div className="card p-5 text-sm text-slate-600 dark:text-slate-400">
+          <div className="card p-5 text-sm text-slate-400">
             Nog geen bakjes. Maak hierboven je eerste bakje aan, of ga naar{" "}
             <Link to="/bakjes/inventariseren" className="underline">
               Inventariseren
@@ -294,7 +294,7 @@ function BakjeRij({
         />
         <button
           onClick={() => setOpen((o) => !o)}
-          className="text-sm text-slate-600 dark:text-slate-400 underline"
+          className="text-sm text-slate-400 underline"
         >
           {open ? "Minder" : "Meer"}
         </button>
@@ -318,7 +318,7 @@ function BakjeRij({
                   onClick={() => onKleur(k)}
                   className={`w-7 h-7 rounded-full border-2 ${
                     bakje.kleur === k
-                      ? "border-slate-900 dark:border-white"
+                      ? "border-white"
                       : "border-transparent"
                   }`}
                   style={{ backgroundColor: k }}

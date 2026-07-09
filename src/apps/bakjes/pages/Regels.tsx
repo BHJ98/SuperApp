@@ -44,7 +44,7 @@ export default function RegelsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Regels</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Een regel koppelt events met een bepaald trefwoord automatisch aan een bakje. Handmatige
           toewijzingen hebben altijd voorrang op regels.
         </p>
@@ -104,7 +104,7 @@ export default function RegelsPage() {
 
       <section className="space-y-2">
         {data.regels.length === 0 && (
-          <div className="card p-5 text-sm text-slate-600 dark:text-slate-400">
+          <div className="card p-5 text-sm text-slate-400">
             Nog geen regels. Ze worden automatisch voorgesteld tijdens inventariseren.
           </div>
         )}

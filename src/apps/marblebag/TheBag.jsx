@@ -1799,6 +1799,10 @@ export default function App() {
   function handleImport(e) {
     const file = e.target.files[0]
     if (!file) return
+    if (!confirm('This replaces the entire shared state (for both of you) with the contents of this backup file. Continue?')) {
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {

@@ -118,10 +118,10 @@ export function BakjesTargetVergelijking({
           const delta = entry.werkelijkeUrenPerWeek - entry.targetUrenPerWeek;
           const kleurKlasse =
             pct > 110
-              ? "text-red-600 dark:text-red-400"
+              ? "text-red-400"
               : pct < 90
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-green-600 dark:text-green-400";
+                ? "text-amber-400"
+                : "text-green-400";
           const isOpen = openBakjeId === entry.bakje.id;
           const eventCount = entry.events.length;
           return (
@@ -130,7 +130,7 @@ export function BakjesTargetVergelijking({
                 type="button"
                 onClick={() => setOpenBakjeId(isOpen ? null : entry.bakje.id)}
                 aria-expanded={isOpen}
-                className="w-full flex items-center gap-3 text-sm py-1.5 px-1 rounded hover:bg-slate-50 dark:hover:bg-slate-900/40 text-left"
+                className="w-full flex items-center gap-3 text-sm py-1.5 px-1 rounded hover:bg-slate-900/40 text-left"
               >
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
@@ -144,7 +144,7 @@ export function BakjesTargetVergelijking({
                 <span className="tabular-nums text-xs text-slate-500 hidden sm:inline">
                   {eventCount} event{eventCount === 1 ? "" : "s"}
                 </span>
-                <span className="tabular-nums text-slate-600 dark:text-slate-400">
+                <span className="tabular-nums text-slate-400">
                   {formatHours(entry.werkelijkeUrenPerWeek)} /{" "}
                   {formatHours(entry.targetUrenPerWeek)}
                 </span>
@@ -204,7 +204,7 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
   const hasOngecat = rapport.totaalMinutenOngecategoriseerd > 0;
 
   return (
-    <div className="mt-3 pt-2 border-t border-[var(--border)] space-y-1 text-xs text-slate-600 dark:text-slate-400">
+    <div className="mt-3 pt-2 border-t border-[var(--border)] space-y-1 text-xs text-slate-400">
       <div className="flex items-center gap-3 px-1">
         <span className="flex-1">
           Periode: <strong>{weken.toFixed(2).replace(/\.?0+$/, "")} weken</strong>
@@ -216,7 +216,7 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
       </div>
       {hasZonderTarget && (
         <div className="flex items-center gap-3 px-1">
-          <span className="flex-1 text-amber-700 dark:text-amber-400">
+          <span className="flex-1 text-amber-400">
             ⚠ Bakjes zonder target (niet in de vergelijking hierboven)
           </span>
           <span className="tabular-nums">{formatHours(zonderTargetPW)}/week</span>
@@ -224,7 +224,7 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
       )}
       {hasOngecat && (
         <div className="flex items-center gap-3 px-1">
-          <span className="flex-1 text-amber-700 dark:text-amber-400">
+          <span className="flex-1 text-amber-400">
             ⚠ Ongecategoriseerd (niet in de vergelijking hierboven)
           </span>
           <span className="tabular-nums">{formatHours(ongecatPW)}/week</span>

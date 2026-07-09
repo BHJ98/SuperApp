@@ -44,7 +44,6 @@ export default function BackupPage() {
 
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<BackupData | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<RestoreResult | null>(null);
@@ -120,8 +119,6 @@ export default function BackupPage() {
       setImportError("Bestand is te groot (max 100MB).");
       return;
     }
-
-    setImportFile(file);
 
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -262,7 +259,6 @@ export default function BackupPage() {
   }
 
   function resetImport() {
-    setImportFile(null);
     setImportPreview(null);
     setImportError(null);
     setImportResult(null);
@@ -380,7 +376,7 @@ export default function BackupPage() {
 
             {importResult && (
               <div className="space-y-3">
-                <div className="flex items-start gap-2 text-sm text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 p-3 rounded-md">
+                <div className="flex items-start gap-2 text-sm text-green-400 bg-green-900/20 p-3 rounded-md">
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium">Herstel voltooid</p>

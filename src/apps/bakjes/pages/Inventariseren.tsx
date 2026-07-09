@@ -91,7 +91,7 @@ export default function InventariserenPage() {
     return (
       <div className="card p-5">
         <h1 className="text-xl font-semibold mb-2">Nog geen events</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Upload eerst een ICS-bestand op de{" "}
           <Link to="/bakjes/instellingen" className="underline">
             instellingenpagina
@@ -279,7 +279,7 @@ function RegelSuggestie({
     >
       <div className="card p-5 max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold">Regel maken?</h3>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-400">
           Wil je voortaan álle events waarvan de titel "{kw}" bevat automatisch toewijzen aan{" "}
           <b style={{ color: bakje.kleur }}>{bakje.naam}</b>?
         </p>

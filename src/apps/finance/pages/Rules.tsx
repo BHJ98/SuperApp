@@ -290,7 +290,9 @@ export default function RulesPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-destructive"
-                            onClick={() => handleDelete(rule.id)}
+                            onClick={() => {
+                              if (confirm("Deze regel verwijderen?")) handleDelete(rule.id);
+                            }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
