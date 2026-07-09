@@ -270,7 +270,7 @@ export default function RulesPage() {
                           className="flex items-center gap-1"
                         >
                           {rule.is_active ? (
-                            <ToggleRight className="h-5 w-5 text-green-600" />
+                            <ToggleRight className="h-5 w-5 text-ok" />
                           ) : (
                             <ToggleLeft className="h-5 w-5 text-muted-foreground" />
                           )}

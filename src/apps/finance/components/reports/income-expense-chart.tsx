@@ -70,7 +70,7 @@ export function IncomeExpenseChart({ data, comparison }: Props) {
               <div key={key} className="rounded-lg border p-3 text-center">
                 <p className="text-xs text-muted-foreground mb-1">{labels[key]}</p>
                 <p className="text-lg font-bold font-mono">{formatCurrency(curr)}</p>
-                <div className={`flex items-center justify-center gap-1 text-sm ${positive ? "text-green-600" : "text-red-600"}`}>
+                <div className={`flex items-center justify-center gap-1 text-sm ${positive ? "text-ok" : "text-danger"}`}>
                   {positive ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
                   <span>{changeCur}</span>
                   <span className="text-xs">({change.text})</span>

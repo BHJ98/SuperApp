@@ -44,7 +44,7 @@ export default function RegelsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Regels</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Een regel koppelt events met een bepaald trefwoord automatisch aan een bakje. Handmatige
           toewijzingen hebben altijd voorrang op regels.
         </p>
@@ -53,7 +53,7 @@ export default function RegelsPage() {
       <section className="card p-5">
         <h2 className="text-lg font-medium mb-3">Nieuwe regel</h2>
         {data.bakjes.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Maak eerst een bakje aan op <Link to="/bakjes/bakjes" className="underline">Bakjes</Link>.
           </p>
         ) : (
@@ -104,7 +104,7 @@ export default function RegelsPage() {
 
       <section className="space-y-2">
         {data.regels.length === 0 && (
-          <div className="card p-5 text-sm text-slate-400">
+          <div className="card p-5 text-sm text-muted">
             Nog geen regels. Ze worden automatisch voorgesteld tijdens inventariseren.
           </div>
         )}
@@ -121,8 +121,8 @@ export default function RegelsPage() {
               onChange={(e) => update(r.id, { keyword: e.target.value })}
               className="bg-transparent border-b border-transparent focus:border-[var(--border)] px-1 py-0.5 font-mono"
             />
-            <span className="text-sm text-slate-500">in {r.matchVeld}</span>
-            <span className="text-sm text-slate-500">→</span>
+            <span className="text-sm text-muted">in {r.matchVeld}</span>
+            <span className="text-sm text-muted">→</span>
             <select
               value={r.bakjeId}
               onChange={(e) => update(r.id, { bakjeId: e.target.value })}
@@ -135,9 +135,9 @@ export default function RegelsPage() {
               ))}
             </select>
             {!bakjenaamById[r.bakjeId] && (
-              <span className="text-xs text-red-600">bakje ontbreekt</span>
+              <span className="text-xs text-danger">bakje ontbreekt</span>
             )}
-            <label className="text-xs text-slate-500 flex items-center gap-1 ml-auto">
+            <label className="text-xs text-muted flex items-center gap-1 ml-auto">
               <input
                 type="checkbox"
                 checked={r.caseSensitive}
@@ -147,7 +147,7 @@ export default function RegelsPage() {
             </label>
             <button
               onClick={() => verwijder(r.id)}
-              className="text-sm text-red-600 hover:underline"
+              className="text-sm text-danger hover:underline"
             >
               Verwijder
             </button>

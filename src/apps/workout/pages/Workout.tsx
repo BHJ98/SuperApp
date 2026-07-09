@@ -11,10 +11,10 @@ import { suggestNextSets, warmupSets, type ProgressionStatus } from "../lib/prog
 import type { Exercise, WorkoutExerciseWithSets, WorkoutSet } from "../lib/db";
 
 const statusStyles: Record<ProgressionStatus, string> = {
-  new: "bg-slate-700 text-slate-200",
-  hold: "bg-sky-600/30 text-sky-300",
-  progress: "bg-green-600/30 text-green-300",
-  deload: "bg-amber-600/30 text-amber-300",
+  new: "bg-subtle text-muted",
+  hold: "bg-info-soft text-info",
+  progress: "bg-ok-soft text-ok",
+  deload: "bg-warn-soft text-warn",
 };
 
 export default function Workout() {
@@ -25,7 +25,7 @@ export default function Workout() {
   const m = useWorkoutMutations(id);
   const [picking, setPicking] = useState(false);
 
-  if (isLoading || !workout) return <p className="text-slate-500">Loading…</p>;
+  if (isLoading || !workout) return <p className="text-muted">Loading…</p>;
 
   const existingIds = workout.exercises.map((e) => e.exerciseId);
 
@@ -48,7 +48,7 @@ export default function Workout() {
       </div>
 
       {workout.exercises.length === 0 && (
-        <p className="text-sm text-slate-500">Add an exercise to begin logging.</p>
+        <p className="text-sm text-muted">Add an exercise to begin logging.</p>
       )}
 
       <div className="space-y-3">
@@ -175,7 +175,7 @@ function ExerciseCard({
       <div className="flex items-start justify-between">
         <div>
           <p className="font-semibold">{exercise.name}</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted">
             target {exercise.defaultRepMin}–{exercise.defaultRepMax} reps
           </p>
         </div>
@@ -185,7 +185,7 @@ function ExerciseCard({
               m.removeExercise.mutate(we.id);
             }
           }}
-          className="text-sm text-red-400"
+          className="text-sm text-danger"
         >
           remove
         </button>
@@ -210,7 +210,7 @@ function ExerciseCard({
       ) : (
         <>
           <div className="space-y-1.5">
-            <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem] items-center gap-2 text-xs text-slate-500">
+            <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem] items-center gap-2 text-xs text-muted">
               <span>Set</span>
               <span>kg</span>
               <span>reps</span>
@@ -253,10 +253,10 @@ function SetRow({ set, index, m }: { set: WorkoutSet; index: number; m: Mutation
   return (
     <div
       className={`grid grid-cols-[2rem_1fr_1fr_2.5rem] items-center gap-2 rounded-lg px-1 py-0.5 ${
-        done ? "bg-green-900/20" : ""
+        done ? "bg-ok-soft" : ""
       }`}
     >
-      <span className="text-center text-sm text-slate-400">
+      <span className="text-center text-sm text-muted">
         {set.isWarmup ? "W" : index}
       </span>
       <input
@@ -279,7 +279,7 @@ function SetRow({ set, index, m }: { set: WorkoutSet; index: number; m: Mutation
         <button
           onClick={toggle}
           className={`h-8 w-8 rounded-lg text-sm ${
-            done ? "bg-green-600 text-white" : "bg-slate-700 text-slate-300"
+            done ? "bg-ok text-white" : "bg-subtle text-ink"
           }`}
         >
           ✓

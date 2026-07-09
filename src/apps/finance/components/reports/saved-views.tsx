@@ -69,7 +69,7 @@ export function SavedViews({
           </Button>
           <button
             onClick={() => deleteView(view.id)}
-            className="text-muted-foreground hover:text-red-600 p-0.5"
+            className="text-muted-foreground hover:text-danger p-0.5"
           >
             <Trash2 className="h-3 w-3" />
           </button>

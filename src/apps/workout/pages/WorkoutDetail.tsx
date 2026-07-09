@@ -8,7 +8,7 @@ export default function WorkoutDetail() {
   const { data: workout, isLoading } = useWorkout(id);
   const m = useWorkoutMutations(id);
 
-  if (isLoading || !workout) return <p className="text-slate-500">Loading…</p>;
+  if (isLoading || !workout) return <p className="text-muted">Loading…</p>;
 
   const totalVolume = workout.exercises
     .flatMap((e) => e.sets)
@@ -25,7 +25,7 @@ export default function WorkoutDetail() {
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-bold">{fmtDate(workout.startedAt)}</h2>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           {workout.routine?.name ?? "Ad-hoc"} · {fmtWeight(Math.round(totalVolume))} kg volume
         </p>
       </div>
@@ -44,8 +44,8 @@ export default function WorkoutDetail() {
               {we.sets
                 .sort((a, b) => a.setNumber - b.setNumber)
                 .map((s) => (
-                  <div key={s.id} className="flex justify-between text-slate-300">
-                    <span className="text-slate-500">
+                  <div key={s.id} className="flex justify-between text-ink">
+                    <span className="text-muted">
                       {s.isWarmup ? "Warm-up" : `Set ${s.setNumber}`}
                     </span>
                     <span>
@@ -53,7 +53,7 @@ export default function WorkoutDetail() {
                     </span>
                   </div>
                 ))}
-              {we.sets.length === 0 && <p className="text-slate-500">No sets logged.</p>}
+              {we.sets.length === 0 && <p className="text-muted">No sets logged.</p>}
             </div>
           </div>
         ))}

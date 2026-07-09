@@ -74,7 +74,7 @@ export function TransactionModal({
                   </td>
                   <td
                     className={`py-2 font-mono text-right whitespace-nowrap ${
-                      t.amount < 0 ? "text-red-600" : "text-green-600"
+                      t.amount < 0 ? "text-danger" : "text-ok"
                     }`}
                   >
                     {formatCurrency(t.amount)}

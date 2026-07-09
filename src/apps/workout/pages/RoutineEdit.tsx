@@ -104,10 +104,10 @@ export default function RoutineEdit() {
           <div key={i} className="card space-y-2">
             <div className="flex items-center justify-between">
               <p className="font-medium">{row.name}</p>
-              <div className="flex gap-1 text-slate-400">
+              <div className="flex gap-1 text-muted">
                 <button onClick={() => move(i, -1)}>↑</button>
                 <button onClick={() => move(i, 1)}>↓</button>
-                <button onClick={() => setRows((r) => r.filter((_, idx) => idx !== i))} className="text-red-400">✕</button>
+                <button onClick={() => setRows((r) => r.filter((_, idx) => idx !== i))} className="text-danger">✕</button>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">

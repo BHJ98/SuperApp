@@ -376,7 +376,7 @@ export default function BackupPage() {
 
             {importResult && (
               <div className="space-y-3">
-                <div className="flex items-start gap-2 text-sm text-green-400 bg-green-900/20 p-3 rounded-md">
+                <div className="flex items-start gap-2 text-sm text-ok bg-ok-soft p-3 rounded-md">
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium">Herstel voltooid</p>

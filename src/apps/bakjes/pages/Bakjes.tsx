@@ -96,13 +96,13 @@ export default function BakjesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-2xl font-semibold">Bakjes</h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Grootenboer adviseert 4–6 bakjes. Meer dan 6 is een signaal dat je functie te
             versnipperd is.{" "}
             {tePlaatsen >= 0 ? (
               <span>Nog ruimte voor {tePlaatsen} bakje(s).</span>
             ) : (
-              <span className="text-orange-600">Je hebt meer dan 6 bakjes — alarmsignaal.</span>
+              <span className="text-warn">Je hebt meer dan 6 bakjes — alarmsignaal.</span>
             )}
           </p>
         </div>
@@ -167,7 +167,7 @@ export default function BakjesPage() {
 
       <section className="space-y-3 print:hidden">
         {data.bakjes.length === 0 && (
-          <div className="card p-5 text-sm text-slate-400">
+          <div className="card p-5 text-sm text-muted">
             Nog geen bakjes. Maak hierboven je eerste bakje aan, of ga naar{" "}
             <Link to="/bakjes/inventariseren" className="underline">
               Inventariseren
@@ -294,13 +294,13 @@ function BakjeRij({
         />
         <button
           onClick={() => setOpen((o) => !o)}
-          className="text-sm text-slate-400 underline"
+          className="text-sm text-muted underline"
         >
           {open ? "Minder" : "Meer"}
         </button>
         <button
           onClick={onVerwijder}
-          className="text-sm text-red-600 hover:underline"
+          className="text-sm text-danger hover:underline"
           aria-label={`Bakje ${bakje.naam} verwijderen`}
         >
           Verwijder
@@ -338,7 +338,7 @@ function BakjeRij({
               placeholder="bijv. 8"
               className="mt-1 border border-[var(--border)] rounded px-2 py-1 bg-transparent"
             />
-            <span className="text-xs text-slate-500 mt-1">
+            <span className="text-xs text-muted mt-1">
               Ideaalwaarde. Leeg laten om geen target te zetten. Dashboard toont werkelijk vs.
               target.
             </span>

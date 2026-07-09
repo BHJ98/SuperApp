@@ -16,7 +16,7 @@ export default function ExerciseDetail() {
   const { data: prs } = usePersonalRecords(activeProfile?.id, id);
   const del = useDeleteExercise();
 
-  if (!exercise) return <p className="text-slate-500">Loading…</p>;
+  if (!exercise) return <p className="text-muted">Loading…</p>;
 
   const chartData = progress.map((p) => ({
     label: format(new Date(p.date), "d MMM"),
@@ -35,11 +35,11 @@ export default function ExerciseDetail() {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-xl font-bold">{exercise.name}</h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             {exercise.primaryMuscle} · {exercise.equipment} · {exercise.mechanic}
           </p>
         </div>
-        <Link to={`/workout/exercises/${exercise.id}/edit`} className="text-sm text-blue-400">
+        <Link to={`/workout/exercises/${exercise.id}/edit`} className="text-sm text-info">
           Edit
         </Link>
       </div>
@@ -57,15 +57,15 @@ export default function ExerciseDetail() {
       {prs && (
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="card">
-            <p className="text-xs text-slate-400">Best weight</p>
+            <p className="text-xs text-muted">Best weight</p>
             <p className="text-lg font-bold">{fmtWeight(prs.bestWeightKg)} kg</p>
           </div>
           <div className="card">
-            <p className="text-xs text-slate-400">Est. 1RM</p>
+            <p className="text-xs text-muted">Est. 1RM</p>
             <p className="text-lg font-bold">{fmtWeight(prs.bestE1rm)} kg</p>
           </div>
           <div className="card">
-            <p className="text-xs text-slate-400">Reps @ top</p>
+            <p className="text-xs text-muted">Reps @ top</p>
             <p className="text-lg font-bold">{prs.bestRepsAtTopWeight}</p>
           </div>
         </div>
@@ -74,17 +74,17 @@ export default function ExerciseDetail() {
       <div className="card">
         <h3 className="mb-2 text-sm font-semibold">Progress</h3>
         {chartData.length < 2 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Log this exercise a couple of times to see your trend.
           </p>
         ) : (
-          <Suspense fallback={<p className="text-sm text-slate-500">Loading chart…</p>}>
+          <Suspense fallback={<p className="text-sm text-muted">Loading chart…</p>}>
             <ProgressChart data={chartData} />
           </Suspense>
         )}
       </div>
 
-      {exercise.notes && <p className="text-sm text-slate-400">{exercise.notes}</p>}
+      {exercise.notes && <p className="text-sm text-muted">{exercise.notes}</p>}
 
       <button onClick={remove} className="btn-danger w-full">
         Delete exercise

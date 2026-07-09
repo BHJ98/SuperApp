@@ -47,7 +47,7 @@ function CustomTooltip({
           {p.name}: {formatCurrency(p.value)}
         </p>
       ))}
-      <p className={`font-medium mt-1 ${diff >= 0 ? "text-green-600" : "text-red-600"}`}>
+      <p className={`font-medium mt-1 ${diff >= 0 ? "text-ok" : "text-danger"}`}>
         {diff >= 0 ? "Over: " : "Tekort: "}{formatCurrency(Math.abs(diff))}
       </p>
     </div>
@@ -99,7 +99,7 @@ export function BudgetRealityChart({ data, onCategoryClick }: Props) {
                 </span>
                 <span
                   className={`font-mono font-medium min-w-[80px] text-right ${
-                    d.isOver ? "text-red-600" : "text-green-600"
+                    d.isOver ? "text-danger" : "text-ok"
                   }`}
                 >
                   {diff >= 0 ? "+" : ""}{formatCurrency(diff)}

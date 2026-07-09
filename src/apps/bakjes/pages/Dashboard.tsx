@@ -128,7 +128,7 @@ export default function Dashboard() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Week {formatDateRange(window, data.instellingen.tijdzone)}
           </p>
         </div>
@@ -157,13 +157,13 @@ export default function Dashboard() {
       </header>
 
       {!ready && (
-        <div className="card p-4 text-sm text-slate-500">Laden…</div>
+        <div className="card p-4 text-sm text-muted">Laden…</div>
       )}
 
       {!hasEvents && (
         <div className="card p-5 space-y-2">
           <h2 className="text-lg font-medium">Nog geen events in deze week</h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Exporteer je Google Calendar als ICS en upload het bestand in{" "}
             <Link to="/bakjes/instellingen" className="underline">
               Instellingen
@@ -195,12 +195,12 @@ export default function Dashboard() {
         <section className="grid md:grid-cols-[1fr_1.2fr] gap-6">
           <div className="card p-5">
             <BakjesDonut report={report} />
-            <div className="mt-3 text-center text-sm text-slate-500">
+            <div className="mt-3 text-center text-sm text-muted">
               Totaal {formatteerUren(report.totaalMinuten)}
               {report.totaalMinutenOverloop > 0 && (
                 <>
                   {" · "}
-                  <span className="text-amber-600">
+                  <span className="text-warn">
                     {formatteerUren(report.totaalMinutenOverloop)} overloop
                   </span>
                 </>
@@ -231,18 +231,18 @@ export default function Dashboard() {
                         setOpenWeekBakjeId(isOpen ? null : b.bakje.id)
                       }
                       aria-expanded={isOpen}
-                      className="w-full flex items-center gap-3 py-1.5 px-1 rounded hover:bg-slate-900/40 text-left"
+                      className="w-full flex items-center gap-3 py-1.5 px-1 rounded hover:bg-subtle text-left"
                     >
                       <span
                         className="w-3 h-3 rounded-full inline-block shrink-0"
                         style={{ backgroundColor: b.bakje.kleur }}
                         aria-hidden
                       />
-                      <span className="text-slate-400 w-3 shrink-0" aria-hidden>
+                      <span className="text-muted w-3 shrink-0" aria-hidden>
                         {isOpen ? "▾" : "▸"}
                       </span>
                       <span className="font-medium flex-1 truncate">{b.bakje.naam}</span>
-                      <span className="text-xs text-slate-500 hidden sm:inline tabular-nums">
+                      <span className="text-xs text-muted hidden sm:inline tabular-nums">
                         {b.events.length} event{b.events.length === 1 ? "" : "s"}
                       </span>
                       <span className="text-sm tabular-nums">
@@ -250,7 +250,7 @@ export default function Dashboard() {
                       </span>
                       {!sluitOverloopUitWeek && b.minutenOverloop > 0 && (
                         <span
-                          className="text-xs px-2 py-0.5 rounded bg-amber-900/40 text-amber-200"
+                          className="text-xs px-2 py-0.5 rounded bg-warn-soft text-warn"
                           title="Aantal minuten buiten werkuren"
                         >
                           +{formatteerUren(b.minutenOverloop)} overloop
@@ -269,12 +269,12 @@ export default function Dashboard() {
               })}
               {report.ongecategoriseerd.minuten > 0 && (
                 <li className="flex items-center gap-3 pt-2 mt-1 border-t border-[var(--border)] px-1">
-                  <span className="w-3 h-3 rounded-full inline-block bg-slate-400" aria-hidden />
+                  <span className="w-3 h-3 rounded-full inline-block bg-faint" aria-hidden />
                   <span className="w-3 shrink-0" aria-hidden />
-                  <span className="flex-1 text-slate-400">
+                  <span className="flex-1 text-muted">
                     Ongecategoriseerd
                   </span>
-                  <span className="text-sm tabular-nums text-slate-400">
+                  <span className="text-sm tabular-nums text-muted">
                     {formatteerUren(report.ongecategoriseerd.minuten)}
                   </span>
                   <Link to="/bakjes/inventariseren" className="text-xs underline">
@@ -286,7 +286,7 @@ export default function Dashboard() {
                 <span className="w-3 h-3 shrink-0" aria-hidden />
                 <span className="w-3 shrink-0" aria-hidden />
                 <span className="flex-1">Totaal</span>
-                <span className="text-xs text-slate-500 hidden sm:inline tabular-nums">
+                <span className="text-xs text-muted hidden sm:inline tabular-nums">
                   {report.perBakje.reduce((sum, b) => sum + b.events.length, 0) +
                     report.ongecategoriseerd.events.length}{" "}
                   events
@@ -305,7 +305,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg font-medium">Target vs. werkelijk</h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted">
                 Gemiddeld per week over de gekozen periode. 100% = precies op target.
               </p>
             </div>
@@ -317,7 +317,7 @@ export default function Dashboard() {
                   className={`px-3 py-1 ${
                     periodeModus === "preset"
                       ? "bg-[var(--accent)] text-white"
-                      : "hover:bg-slate-800"
+                      : "hover:bg-subtle"
                   }`}
                 >
                   Vast
@@ -328,7 +328,7 @@ export default function Dashboard() {
                   className={`px-3 py-1 ${
                     periodeModus === "aangepast"
                       ? "bg-[var(--accent)] text-white"
-                      : "hover:bg-slate-800"
+                      : "hover:bg-subtle"
                   }`}
                 >
                   Aangepast
@@ -386,7 +386,7 @@ export default function Dashboard() {
           </div>
 
           {!heeftTargets ? (
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-muted">
               Nog geen targets ingesteld. Ga naar{" "}
               <Link to="/bakjes/bakjes" className="underline">
                 Bakjes
@@ -394,7 +394,7 @@ export default function Dashboard() {
               en vul per bakje een 'target uren per week' in.
             </div>
           ) : periodeEvents.length === 0 ? (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-muted">
               Geen events in deze periode.
             </div>
           ) : (
@@ -411,7 +411,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium mb-3">
             Overloop-events ({overloopEvents.length})
           </h2>
-          <p className="text-sm text-slate-500 mb-3">
+          <p className="text-sm text-muted mb-3">
             Events die (deels) buiten {data.instellingen.werkurenStart}–
             {data.instellingen.werkurenEind} vallen. Signaal van werkdruk buiten kantooruren.
           </p>
@@ -420,7 +420,7 @@ export default function Dashboard() {
               const bakje = data.bakjes.find((b) => b.id === assignment.bakjeId);
               return (
                 <li key={event.uid} className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 w-28 shrink-0">
+                  <span className="text-xs text-muted w-28 shrink-0">
                     {formatTz(startLocal, "EEE d MMM HH:mm", {
                       timeZone: data.instellingen.tijdzone,
                     })}
@@ -439,7 +439,7 @@ export default function Dashboard() {
             })}
           </ul>
           {overloopEvents.length > 20 && (
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-xs text-muted mt-2">
               …en {overloopEvents.length - 20} meer.
             </p>
           )}
@@ -460,7 +460,7 @@ function WeekEventLijst({
 }) {
   if (events.length === 0) {
     return (
-      <div className="ml-7 my-1 text-xs text-slate-500">
+      <div className="ml-7 my-1 text-xs text-muted">
         Geen events deze week aan dit bakje toegewezen.
       </div>
     );
@@ -478,11 +478,11 @@ function WeekEventLijst({
         const startLocal = toZonedTime(new Date(e.start), tijdzone);
         return (
           <li key={e.uid} className="flex items-baseline gap-2 text-xs">
-            <span className="text-slate-500 w-32 shrink-0 tabular-nums">
+            <span className="text-muted w-32 shrink-0 tabular-nums">
               {formatTz(startLocal, "EEE d MMM HH:mm", { timeZone: tijdzone })}
             </span>
             <span className="flex-1 truncate">{e.titel || "(geen titel)"}</span>
-            <span className="text-slate-500 tabular-nums shrink-0">
+            <span className="text-muted tabular-nums shrink-0">
               {formatteerUren(minuten)}
             </span>
           </li>

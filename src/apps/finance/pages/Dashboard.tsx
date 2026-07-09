@@ -383,7 +383,7 @@ export default function DashboardPage() {
               <TrendingUp className="h-4 w-4" />
               <span className="text-sm">Inkomsten</span>
             </div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-ok">
               {formatCurrency(totals.income)}
             </p>
           </CardContent>
@@ -394,7 +394,7 @@ export default function DashboardPage() {
               <TrendingDown className="h-4 w-4" />
               <span className="text-sm">Uitgaven</span>
             </div>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-2xl font-bold text-danger">
               {formatCurrency(totals.expenses)}
             </p>
           </CardContent>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
               <PiggyBank className="h-4 w-4" />
               <span className="text-sm">Naar sparen</span>
             </div>
-            <p className="text-2xl font-bold text-blue-600">
+            <p className="text-2xl font-bold text-info">
               {formatCurrency(toSavings)}
             </p>
           </CardContent>
@@ -418,7 +418,7 @@ export default function DashboardPage() {
             </div>
             <p
               className={`text-2xl font-bold ${
-                totals.net >= 0 ? "text-green-600" : "text-red-600"
+                totals.net >= 0 ? "text-ok" : "text-danger"
               }`}
             >
               {formatCurrency(totals.net)}
@@ -450,7 +450,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-blue-500 rounded-full"
+                          className="h-full bg-info rounded-full"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -486,7 +486,7 @@ export default function DashboardPage() {
                       <div key={cat.categoryId}>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="font-medium">{cat.name}</span>
-                          <span className={`font-mono ${isOver ? "text-red-600" : ""}`}>
+                          <span className={`font-mono ${isOver ? "text-danger" : ""}`}>
                             {formatCurrency(cat.spent)} / {formatCurrency(cat.budget!)}
                           </span>
                         </div>
@@ -494,10 +494,10 @@ export default function DashboardPage() {
                           <div
                             className={`h-full rounded-full ${
                               isOver
-                                ? "bg-red-500"
+                                ? "bg-danger"
                                 : pct > 80
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
+                                ? "bg-warn"
+                                : "bg-ok"
                             }`}
                             style={{ width: `${pct}%` }}
                           />
@@ -522,7 +522,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Inkomsten vs Uitgaven (3 maanden)</span>
-              <Link href="/finance/reports" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              <Link href="/finance/reports" className="text-xs text-info hover:underline flex items-center gap-1">
                 Details <ArrowRight className="h-3 w-3" />
               </Link>
             </CardTitle>
@@ -540,7 +540,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center justify-between">
               <span>Saldoverloop</span>
-              <Link href="/finance/reports" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              <Link href="/finance/reports" className="text-xs text-info hover:underline flex items-center gap-1">
                 Details <ArrowRight className="h-3 w-3" />
               </Link>
             </CardTitle>
@@ -679,7 +679,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
                         <div
-                          className="h-full bg-blue-500 rounded-full"
+                          className="h-full bg-info rounded-full"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -715,7 +715,7 @@ export default function DashboardPage() {
       <div className="mt-6 text-center">
         <Link
           href="/finance/reports"
-          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
+          className="inline-flex items-center gap-2 text-sm font-medium text-info hover:underline"
         >
           Bekijk volledige rapportages
           <ArrowRight className="h-4 w-4" />

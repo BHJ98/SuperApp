@@ -20,14 +20,15 @@ export default function ProgressChart({ data }: { data: ChartPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data} margin={{ top: 5, right: 8, bottom: 0, left: -20 }}>
-        <CartesianGrid stroke="#1e293b" />
-        <XAxis dataKey="label" stroke="#64748b" fontSize={11} />
-        <YAxis stroke="#64748b" fontSize={11} />
+        <CartesianGrid stroke="var(--border)" />
+        <XAxis dataKey="label" stroke="var(--muted)" fontSize={11} />
+        <YAxis stroke="var(--muted)" fontSize={11} />
         <Tooltip
           contentStyle={{
-            background: "#0f172a",
-            border: "1px solid #334155",
+            background: "var(--raised)",
+            border: "1px solid var(--border)",
             borderRadius: 12,
+            color: "var(--ink)",
           }}
         />
         <Line

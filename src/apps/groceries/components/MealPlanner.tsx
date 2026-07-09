@@ -218,7 +218,7 @@ export function MealPlanner({
               </button>
               <button
                 onClick={() => removeMealPlan(mp.id)}
-                className="text-xs text-muted hover:text-red-500 transition-colors shrink-0"
+                className="text-xs text-muted hover:text-danger transition-colors shrink-0"
               >✕</button>
             </div>
           ))}

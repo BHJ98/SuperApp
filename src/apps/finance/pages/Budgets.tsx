@@ -415,7 +415,7 @@ export default function BudgetsPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm font-mono ${isOver ? "text-red-600" : ""}`}>
+                        <span className={`text-sm font-mono ${isOver ? "text-danger" : ""}`}>
                           {formatCurrency(spent)} / {formatCurrency(monthlyBudget)}
                         </span>
                         <div className="flex gap-1 transition-opacity">
@@ -442,10 +442,10 @@ export default function BudgetsPage() {
                       <div
                         className={`h-full rounded-full transition-all ${
                           isOver
-                            ? "bg-red-500"
+                            ? "bg-danger"
                             : percentage > 80
-                            ? "bg-yellow-500"
-                            : "bg-green-500"
+                            ? "bg-warn"
+                            : "bg-ok"
                         }`}
                         style={{ width: `${percentage}%` }}
                       />
@@ -532,7 +532,7 @@ export default function BudgetsPage() {
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
                       <div
-                        className="h-full bg-blue-500 rounded-full transition-all"
+                        className="h-full bg-info rounded-full transition-all"
                         style={{ width: `${percentage}%` }}
                       />
                     </div>

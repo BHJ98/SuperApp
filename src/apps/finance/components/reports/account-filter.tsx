@@ -68,13 +68,13 @@ export function AccountFilter({ accounts, selectedIds, onChange }: Props) {
         <div className="absolute right-0 mt-1 w-56 rounded-md border bg-background shadow-lg z-50">
           <div className="flex justify-between p-2 border-b">
             <button
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-info hover:underline"
               onClick={selectAll}
             >
               Alles
             </button>
             <button
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-info hover:underline"
               onClick={selectNone}
             >
               Geen

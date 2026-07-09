@@ -115,10 +115,10 @@ export default function BankSyncPage() {
 
   function StatusBadge({ status }: { status: string }) {
     const map: Record<string, string> = {
-      active: 'bg-green-500/10 text-green-400 border-green-500/20',
-      pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-      expired: 'bg-red-500/10 text-red-400 border-red-500/20',
-      error: 'bg-red-500/10 text-red-400 border-red-500/20',
+      active: 'bg-ok-soft text-ok border-border',
+      pending: 'bg-warn-soft text-warn border-border',
+      expired: 'bg-danger-soft text-danger border-border',
+      error: 'bg-danger-soft text-danger border-border',
     }
     const labels: Record<string, string> = {
       active: 'Actief', pending: 'Wacht op autorisatie', expired: 'Verlopen', error: 'Fout',

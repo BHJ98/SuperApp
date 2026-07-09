@@ -594,7 +594,7 @@ export default function ReportsPage() {
                     <div key={key} className="rounded-lg border p-3 text-center">
                       <p className="text-xs text-muted-foreground mb-1">{labels[key]}</p>
                       <p className="text-sm font-mono">{formatCurrency(curr)}</p>
-                      <p className={`text-sm font-medium ${positive ? "text-green-600" : "text-red-600"}`}>
+                      <p className={`text-sm font-medium ${positive ? "text-ok" : "text-danger"}`}>
                         {diff >= 0 ? "+" : ""}{formatCurrency(diff)} ({pct === "N/A" ? pct : `${diff >= 0 ? "+" : ""}${pct}%`})
                       </p>
                       <p className="text-xs text-muted-foreground">

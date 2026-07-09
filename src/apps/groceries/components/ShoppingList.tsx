@@ -310,7 +310,7 @@ export function ShoppingList({
             <button
               onClick={deleteSelected}
               disabled={selectedItems.size === 0}
-              className="text-xs font-semibold uppercase tracking-widest text-white bg-red-600 px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors disabled:opacity-30"
+              className="text-xs font-semibold uppercase tracking-widest text-white bg-danger px-3 py-1.5 rounded-md hover:brightness-110 transition-colors disabled:opacity-30"
             >
               Verwijder{selectedItems.size > 0 ? ` (${selectedItems.size})` : ""}
             </button>
@@ -368,7 +368,7 @@ export function ShoppingList({
             >
               {/* Red delete background (revealed on swipe) */}
               <div
-                className="absolute inset-0 bg-red-600 flex items-center justify-end pr-4"
+                className="absolute inset-0 bg-danger flex items-center justify-end pr-4"
                 style={{ opacity: swipeProgress }}
               >
                 <span className="text-white text-xs font-semibold uppercase tracking-widest">
@@ -406,7 +406,7 @@ export function ShoppingList({
                 <span
                   className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
                     manageMode
-                      ? isSelected ? "bg-red-600 border-red-600" : "border-border"
+                      ? isSelected ? "bg-danger border-danger" : "border-border"
                       : isChecked  ? "bg-gold border-gold"       : "border-border"
                   }`}
                 >
@@ -441,7 +441,7 @@ export function ShoppingList({
                 {!manageMode && (
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteOne(item); }}
-                    className="text-xs text-muted hover:text-red-500 hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
+                    className="text-xs text-muted hover:text-danger hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
                   >
                     ✕
                   </button>

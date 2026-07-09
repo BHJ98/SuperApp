@@ -78,7 +78,7 @@ export function RecipeCard({
         {canDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="text-xs text-muted hover:text-red-500 hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0"
+            className="text-xs text-muted hover:text-danger hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0"
           >
             ✕
           </button>
@@ -149,7 +149,7 @@ export function RecipeCard({
                   <span className="text-xs text-muted uppercase tracking-widest">Zeker weten?</span>
                   <button
                     onClick={onRemove}
-                    className="text-xs font-semibold uppercase tracking-widest text-white bg-red-600 px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors"
+                    className="text-xs font-semibold uppercase tracking-widest text-white bg-danger px-3 py-1.5 rounded-md hover:brightness-110 transition-colors"
                   >
                     Verwijder
                   </button>
@@ -163,7 +163,7 @@ export function RecipeCard({
               ) : (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="text-xs font-semibold uppercase tracking-widest text-muted border border-border rounded-md px-3 py-1.5 hover:border-red-500 hover:text-red-500 transition-colors"
+                  className="text-xs font-semibold uppercase tracking-widest text-muted border border-border rounded-md px-3 py-1.5 hover:border-danger hover:text-danger transition-colors"
                 >
                   Verwijder recept
                 </button>

@@ -91,7 +91,7 @@ export default function InventariserenPage() {
     return (
       <div className="card p-5">
         <h1 className="text-xl font-semibold mb-2">Nog geen events</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Upload eerst een ICS-bestand op de{" "}
           <Link to="/bakjes/instellingen" className="underline">
             instellingenpagina
@@ -109,7 +109,7 @@ export default function InventariserenPage() {
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-2xl font-semibold">Inventariseren</h1>
-        <span className="text-sm text-slate-500">
+        <span className="text-sm text-muted">
           {events.filter((e) => !e.heelDag).length} events · {ongecatCount} ongecategoriseerd
         </span>
       </div>
@@ -122,7 +122,7 @@ export default function InventariserenPage() {
           className="border border-[var(--border)] rounded px-3 py-1.5 bg-transparent text-sm flex-1 min-w-[200px]"
         />
         <label className="text-sm flex items-center gap-2">
-          <span className="text-slate-500">Filter:</span>
+          <span className="text-muted">Filter:</span>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as Filter)}
@@ -145,12 +145,12 @@ export default function InventariserenPage() {
               setZoekterm("");
               setFilter("ongecategoriseerd");
             }}
-            className="text-sm text-slate-500 hover:underline"
+            className="text-sm text-muted hover:underline"
           >
             Wissen
           </button>
         )}
-        <span className="text-xs text-slate-500 ml-auto">
+        <span className="text-xs text-muted ml-auto">
           {rijen.length} resultaat{rijen.length === 1 ? "" : "en"}
         </span>
       </div>
@@ -174,7 +174,7 @@ export default function InventariserenPage() {
         ))}
       </div>
       {rijen.length > 200 && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted">
           Eerste 200 van {rijen.length} getoond — filter of categoriseer om er doorheen te komen.
         </p>
       )}
@@ -227,7 +227,7 @@ function EventRij({
     <div className="card p-3 flex items-center gap-3 flex-wrap">
       <div className="flex-1 min-w-[240px]">
         <div className="font-medium">{event.titel || "(geen titel)"}</div>
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-muted">
           {label}–{tot} · {formatteerUren(eventMinuten(event))}
         </div>
       </div>
@@ -279,11 +279,11 @@ function RegelSuggestie({
     >
       <div className="card p-5 max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold">Regel maken?</h3>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Wil je voortaan álle events waarvan de titel "{kw}" bevat automatisch toewijzen aan{" "}
           <b style={{ color: bakje.kleur }}>{bakje.naam}</b>?
         </p>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted">
           (Voorstel op basis van "{event.titel}". Je kunt het trefwoord aanpassen of de regel
           later bewerken bij <em>Regels</em>.)
         </p>

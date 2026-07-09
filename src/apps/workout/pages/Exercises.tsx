@@ -42,7 +42,7 @@ export default function Exercises() {
           <button
             key={r}
             onClick={() => setRegion(r)}
-            className={`chip capitalize ${region === r ? "bg-blue-600 text-white" : ""}`}
+            className={`chip capitalize ${region === r ? "bg-info text-white" : ""}`}
           >
             {r}
           </button>
@@ -50,14 +50,14 @@ export default function Exercises() {
       </div>
 
       {isLoading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-muted">Loading…</p>
       ) : (
         <div className="space-y-2">
           {filtered.map((e) => (
             <Link key={e.id} to={`/workout/exercises/${e.id}`} className="card flex items-center justify-between">
               <div>
                 <p className="font-medium">{e.name}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   {e.primaryMuscle} · {e.equipment} · {e.movementPattern}
                 </p>
               </div>
@@ -65,7 +65,7 @@ export default function Exercises() {
             </Link>
           ))}
           {filtered.length === 0 && (
-            <p className="text-sm text-slate-500">No exercises match.</p>
+            <p className="text-sm text-muted">No exercises match.</p>
           )}
         </div>
       )}

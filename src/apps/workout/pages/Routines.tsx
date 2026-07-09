@@ -25,7 +25,7 @@ export default function Routines() {
       </div>
 
       {routines.length === 0 && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           No routines yet. Build one (e.g. “Push Day”) to start workouts quickly.
         </p>
       )}
@@ -36,7 +36,7 @@ export default function Routines() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">{r.name}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   {r.exercises.map((e) => e.exercise.name).join(", ") || "No exercises"}
                 </p>
               </div>

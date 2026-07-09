@@ -134,7 +134,7 @@ export default function Groceries() {
     return (
       <div className="card">
         <h2 className="text-lg font-semibold">Boodschappen</h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted">
           {configured
             ? "Sign in to use Boodschappen."
             : "Supabase isn't configured in this environment, so groceries data can't load."}
@@ -189,7 +189,7 @@ export default function Groceries() {
             </button>
           </div>
           {error && (
-            <p className="mt-2 text-xs uppercase tracking-wide text-red-500">{error}</p>
+            <p className="mt-2 text-xs uppercase tracking-wide text-danger">{error}</p>
           )}
         </form>
 

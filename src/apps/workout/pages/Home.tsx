@@ -22,7 +22,7 @@ export default function Home() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-slate-400">Welcome back,</p>
+        <p className="text-muted">Welcome back,</p>
         <h2 className="text-2xl font-bold" style={{ color: activeProfile?.color }}>
           {activeProfile?.name ?? "…"}
         </h2>
@@ -30,7 +30,7 @@ export default function Home() {
 
       {ongoing && (
         <button onClick={() => navigate(`/workout/session/${ongoing.id}`)} className="card w-full text-left">
-          <p className="text-xs uppercase tracking-wide text-amber-400">Workout in progress</p>
+          <p className="text-xs uppercase tracking-wide text-warn">Workout in progress</p>
           <p className="font-medium">Tap to resume · started {fmtRelative(ongoing.startedAt)}</p>
         </button>
       )}
@@ -42,12 +42,12 @@ export default function Home() {
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="font-semibold">Routines</h3>
-          <button onClick={() => navigate("/workout/routines/new")} className="text-sm text-blue-400">
+          <button onClick={() => navigate("/workout/routines/new")} className="text-sm text-info">
             + New
           </button>
         </div>
         {routines.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             No routines yet. Create one to start a workout in a tap.
           </p>
         ) : (
@@ -56,7 +56,7 @@ export default function Home() {
               <div key={r.id} className="card flex items-center justify-between">
                 <div>
                   <p className="font-medium">{r.name}</p>
-                  <p className="text-xs text-slate-400">{r.exercises.length} exercises</p>
+                  <p className="text-xs text-muted">{r.exercises.length} exercises</p>
                 </div>
                 <button onClick={() => start(r.id)} className="btn-ghost">
                   Start
@@ -78,7 +78,7 @@ export default function Home() {
                 className="card flex w-full items-center justify-between text-left"
               >
                 <span>{fmtRelative(w.startedAt)}</span>
-                <span className="text-slate-500">›</span>
+                <span className="text-muted">›</span>
               </button>
             ))}
           </div>

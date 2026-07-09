@@ -650,17 +650,17 @@ export default function ImportPage() {
             )}
             <CardContent>
               {parseErrors.length > 0 && (
-                <div className="mb-4 p-3 bg-yellow-50 rounded-md">
-                  <p className="text-sm font-medium text-yellow-800 mb-1">
+                <div className="mb-4 p-3 bg-warn-soft rounded-md">
+                  <p className="text-sm font-medium text-warn mb-1">
                     Waarschuwingen ({parseErrors.length})
                   </p>
                   {parseErrors.slice(0, 5).map((error, i) => (
-                    <p key={i} className="text-sm text-yellow-700">
+                    <p key={i} className="text-sm text-warn">
                       {error}
                     </p>
                   ))}
                   {parseErrors.length > 5 && (
-                    <p className="text-sm text-yellow-600">
+                    <p className="text-sm text-warn">
                       ... en {parseErrors.length - 5} meer
                     </p>
                   )}
@@ -741,8 +741,8 @@ export default function ImportPage() {
                               <td
                                 className={`py-2 px-2 text-right whitespace-nowrap font-mono ${
                                   t.amount < 0
-                                    ? "text-red-600"
-                                    : "text-green-600"
+                                    ? "text-danger"
+                                    : "text-ok"
                                 }`}
                               >
                                 {formatCurrency(t.amount)}
@@ -882,12 +882,12 @@ export default function ImportPage() {
         <div className="space-y-6">
           <Card>
             <CardContent className="p-8 text-center">
-              <CheckCircle2 className="h-16 w-16 mx-auto text-green-500 mb-4" />
+              <CheckCircle2 className="h-16 w-16 mx-auto text-ok mb-4" />
               <h2 className="text-2xl font-bold mb-4">Import voltooid</h2>
 
               <div className="flex justify-center gap-8 mb-6">
                 <div>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-3xl font-bold text-ok">
                     {importResult.imported}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -896,7 +896,7 @@ export default function ImportPage() {
                 </div>
                 {importResult.skipped > 0 && (
                   <div>
-                    <p className="text-3xl font-bold text-yellow-600">
+                    <p className="text-3xl font-bold text-warn">
                       {importResult.skipped}
                     </p>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -908,19 +908,19 @@ export default function ImportPage() {
               </div>
 
               {importResult.newAccounts.length > 0 && (
-                <div className="mb-6 p-4 bg-blue-50 rounded-md text-left">
-                  <p className="text-sm font-medium text-blue-800 mb-2">
+                <div className="mb-6 p-4 bg-info-soft rounded-md text-left">
+                  <p className="text-sm font-medium text-info mb-2">
                     <Plus className="h-4 w-4 inline mr-1" />
                     {importResult.newAccounts.length} nieuwe rekening
                     {importResult.newAccounts.length !== 1 ? "en" : ""}{" "}
                     aangemaakt:
                   </p>
                   {importResult.newAccounts.map((name, i) => (
-                    <p key={i} className="text-sm text-blue-700 ml-5">
+                    <p key={i} className="text-sm text-info ml-5">
                       {name}
                     </p>
                   ))}
-                  <p className="text-xs text-blue-600 mt-2">
+                  <p className="text-xs text-info mt-2">
                     Je kunt namen en details aanpassen op de{" "}
                     <a
                       href="/finance/accounts"
@@ -934,15 +934,15 @@ export default function ImportPage() {
               )}
 
               {categorySuggestions.filter((s) => s.accepted).length > 0 && (
-                <div className="mb-6 p-4 bg-green-50 rounded-md text-left">
-                  <p className="text-sm font-medium text-green-800 mb-2">
+                <div className="mb-6 p-4 bg-ok-soft rounded-md text-left">
+                  <p className="text-sm font-medium text-ok mb-2">
                     <Tags className="h-4 w-4 inline mr-1" />
                     Categorieregels aangemaakt:
                   </p>
                   {categorySuggestions
                     .filter((s) => s.accepted)
                     .map((s) => (
-                      <p key={s.key} className="text-sm text-green-700 ml-5">
+                      <p key={s.key} className="text-sm text-ok ml-5">
                         {s.label} ({s.transactionCount} transacties)
                       </p>
                     ))}

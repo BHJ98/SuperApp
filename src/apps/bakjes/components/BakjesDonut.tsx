@@ -19,7 +19,7 @@ export function BakjesDonut({ report }: { report: PercentageReport }) {
   }
   if (data.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-sm text-slate-500">
+      <div className="h-64 flex items-center justify-center text-sm text-muted">
         Geen events in deze week.
       </div>
     );

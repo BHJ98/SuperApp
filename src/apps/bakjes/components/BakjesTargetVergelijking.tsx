@@ -43,7 +43,7 @@ export function BakjesTargetVergelijking({
 
   if (rapport.perBakje.length === 0) {
     return (
-      <div className="text-sm text-slate-500">
+      <div className="text-sm text-muted">
         Nog geen targets ingesteld. Ga naar <Link to="/bakjes/bakjes" className="underline">Bakjes</Link> en
         vul per bakje een 'target uren per week' in om de vergelijking te zien.
       </div>
@@ -74,20 +74,20 @@ export function BakjesTargetVergelijking({
           >
             <XAxis
               dataKey="naam"
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: "var(--muted)" }}
               interval={0}
               angle={-15}
               textAnchor="end"
               height={60}
             />
             <YAxis
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: "var(--muted)" }}
               domain={[0, Math.ceil(maxVal * 1.15)]}
               label={{
                 value: "uren/week",
                 angle: -90,
                 position: "insideLeft",
-                style: { fontSize: 12, textAnchor: "middle" },
+                style: { fontSize: 12, textAnchor: "middle", fill: "var(--muted)" },
               }}
             />
             <Tooltip
@@ -118,10 +118,10 @@ export function BakjesTargetVergelijking({
           const delta = entry.werkelijkeUrenPerWeek - entry.targetUrenPerWeek;
           const kleurKlasse =
             pct > 110
-              ? "text-red-400"
+              ? "text-danger"
               : pct < 90
-                ? "text-amber-400"
-                : "text-green-400";
+                ? "text-warn"
+                : "text-ok";
           const isOpen = openBakjeId === entry.bakje.id;
           const eventCount = entry.events.length;
           return (
@@ -130,21 +130,21 @@ export function BakjesTargetVergelijking({
                 type="button"
                 onClick={() => setOpenBakjeId(isOpen ? null : entry.bakje.id)}
                 aria-expanded={isOpen}
-                className="w-full flex items-center gap-3 text-sm py-1.5 px-1 rounded hover:bg-slate-900/40 text-left"
+                className="w-full flex items-center gap-3 text-sm py-1.5 px-1 rounded hover:bg-subtle text-left"
               >
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: entry.bakje.kleur }}
                   aria-hidden
                 />
-                <span className="text-slate-400 w-3 shrink-0" aria-hidden>
+                <span className="text-muted w-3 shrink-0" aria-hidden>
                   {isOpen ? "▾" : "▸"}
                 </span>
                 <span className="flex-1 truncate">{entry.bakje.naam}</span>
-                <span className="tabular-nums text-xs text-slate-500 hidden sm:inline">
+                <span className="tabular-nums text-xs text-muted hidden sm:inline">
                   {eventCount} event{eventCount === 1 ? "" : "s"}
                 </span>
-                <span className="tabular-nums text-slate-400">
+                <span className="tabular-nums text-muted">
                   {formatHours(entry.werkelijkeUrenPerWeek)} /{" "}
                   {formatHours(entry.targetUrenPerWeek)}
                 </span>
@@ -153,7 +153,7 @@ export function BakjesTargetVergelijking({
                 >
                   {Math.round(pct)}%
                 </span>
-                <span className="tabular-nums text-xs text-slate-500 min-w-[4.5rem] text-right">
+                <span className="tabular-nums text-xs text-muted min-w-[4.5rem] text-right">
                   {delta >= 0 ? "+" : ""}
                   {formatHours(Math.abs(delta))}
                   {delta < 0 ? " tekort" : delta > 0 ? " over" : ""}
@@ -174,7 +174,7 @@ export function BakjesTargetVergelijking({
           <span className="w-3 h-3 shrink-0" aria-hidden />
           <span className="w-3 shrink-0" aria-hidden />
           <span className="flex-1">Totaal (met target)</span>
-          <span className="tabular-nums text-xs text-slate-500 hidden sm:inline">
+          <span className="tabular-nums text-xs text-muted hidden sm:inline">
             {rapport.perBakje.reduce((sum, e) => sum + e.events.length, 0)} events
           </span>
           <span className="tabular-nums">
@@ -204,7 +204,7 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
   const hasOngecat = rapport.totaalMinutenOngecategoriseerd > 0;
 
   return (
-    <div className="mt-3 pt-2 border-t border-[var(--border)] space-y-1 text-xs text-slate-400">
+    <div className="mt-3 pt-2 border-t border-[var(--border)] space-y-1 text-xs text-muted">
       <div className="flex items-center gap-3 px-1">
         <span className="flex-1">
           Periode: <strong>{weken.toFixed(2).replace(/\.?0+$/, "")} weken</strong>
@@ -216,7 +216,7 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
       </div>
       {hasZonderTarget && (
         <div className="flex items-center gap-3 px-1">
-          <span className="flex-1 text-amber-400">
+          <span className="flex-1 text-warn">
             ⚠ Bakjes zonder target (niet in de vergelijking hierboven)
           </span>
           <span className="tabular-nums">{formatHours(zonderTargetPW)}/week</span>
@@ -224,7 +224,7 @@ function ExtraTotalen({ rapport }: { rapport: TargetRapport }) {
       )}
       {hasOngecat && (
         <div className="flex items-center gap-3 px-1">
-          <span className="flex-1 text-amber-400">
+          <span className="flex-1 text-warn">
             ⚠ Ongecategoriseerd (niet in de vergelijking hierboven)
           </span>
           <span className="tabular-nums">{formatHours(ongecatPW)}/week</span>
@@ -254,7 +254,7 @@ function EventLijst({
 }) {
   if (events.length === 0) {
     return (
-      <div className="ml-7 mb-2 mt-1 text-xs text-slate-500">
+      <div className="ml-7 mb-2 mt-1 text-xs text-muted">
         Geen events in deze periode aan dit bakje toegewezen.
       </div>
     );
@@ -270,11 +270,11 @@ function EventLijst({
         const startLocal = toZonedTime(new Date(e.start), tijdzone);
         return (
           <li key={e.uid} className="flex items-baseline gap-2 text-xs">
-            <span className="text-slate-500 w-32 shrink-0 tabular-nums">
+            <span className="text-muted w-32 shrink-0 tabular-nums">
               {formatTz(startLocal, "EEE d MMM HH:mm", { timeZone: tijdzone })}
             </span>
             <span className="flex-1 truncate">{e.titel || "(geen titel)"}</span>
-            <span className="text-slate-500 tabular-nums shrink-0">
+            <span className="text-muted tabular-nums shrink-0">
               {formatteerUren(dur)}
             </span>
           </li>

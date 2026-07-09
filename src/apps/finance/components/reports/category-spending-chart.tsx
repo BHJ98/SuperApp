@@ -133,7 +133,7 @@ export function CategorySpendingChart({ data, onCategoryClick }: Props) {
           </span>
           <button
             onClick={showAll}
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+            className="text-xs text-info hover:underline flex items-center gap-1"
           >
             <Eye className="h-3 w-3" />
             Alles tonen

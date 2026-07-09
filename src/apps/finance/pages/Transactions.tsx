@@ -769,7 +769,7 @@ export default function TransactionsPage() {
                           <span className="text-xs text-muted-foreground">{formatDate(t.date)}</span>
                           <span
                             className={`font-mono text-sm font-medium ${
-                              t.amount < 0 ? "text-red-600" : "text-green-600"
+                              t.amount < 0 ? "text-danger" : "text-ok"
                             }`}
                           >
                             {formatCurrency(t.amount)}
@@ -787,7 +787,7 @@ export default function TransactionsPage() {
                               onClick={(e) => { e.stopPropagation(); toggleTransfer(t.id, false); }}
                               title="Klik om overboeking ongedaan te maken"
                             >
-                              <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 cursor-pointer">
+                              <Badge variant="outline" className="text-xs border-info text-info cursor-pointer">
                                 <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
                               </Badge>
                             </button>
@@ -898,7 +898,7 @@ export default function TransactionsPage() {
                                 onClick={(e) => { e.stopPropagation(); toggleTransfer(t.id, false); }}
                                 title="Klik om overboeking ongedaan te maken"
                               >
-                                <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 whitespace-nowrap cursor-pointer">
+                                <Badge variant="outline" className="text-xs border-info text-info whitespace-nowrap cursor-pointer">
                                   <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking
                                 </Badge>
                               </button>
@@ -937,7 +937,7 @@ export default function TransactionsPage() {
                         </td>
                         <td
                           className={`py-3 px-4 text-right whitespace-nowrap font-mono ${
-                            t.amount < 0 ? "text-red-600" : "text-green-600"
+                            t.amount < 0 ? "text-danger" : "text-ok"
                           }`}
                         >
                           {formatCurrency(t.amount)}
@@ -1096,7 +1096,7 @@ export default function TransactionsPage() {
             <div className="space-y-4">
               {/* Amount prominently displayed */}
               <div className="text-center py-2">
-                <span className={`text-3xl font-bold font-mono ${detailTransaction.amount < 0 ? "text-red-600" : "text-green-600"}`}>
+                <span className={`text-3xl font-bold font-mono ${detailTransaction.amount < 0 ? "text-danger" : "text-ok"}`}>
                   {formatCurrency(detailTransaction.amount)}
                 </span>
               </div>
@@ -1136,7 +1136,7 @@ export default function TransactionsPage() {
                   <span className="text-muted-foreground">Type</span>
                   <button onClick={() => toggleTransfer(detailTransaction.id, !detailTransaction.is_transfer)}>
                     {detailTransaction.is_transfer ? (
-                      <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 cursor-pointer">
+                      <Badge variant="outline" className="text-xs border-info text-info cursor-pointer">
                         <ArrowLeftRight className="h-3 w-3 mr-1" />Overboeking — klik om op te heffen
                       </Badge>
                     ) : (

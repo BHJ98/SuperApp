@@ -22,7 +22,7 @@ export default function ExercisePicker({ onPick, onClose, excludeIds = [] }: Pro
   }, [exercises, search, excludeIds]);
 
   return (
-    <div className="fixed inset-0 z-30 flex flex-col bg-slate-900/95 backdrop-blur">
+    <div className="fixed inset-0 z-30 flex flex-col bg-base backdrop-blur">
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-bold">Add exercise</h3>
@@ -46,14 +46,14 @@ export default function ExercisePicker({ onPick, onClose, excludeIds = [] }: Pro
             >
               <div>
                 <p className="font-medium">{e.name}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   {e.primaryMuscle} · {e.equipment}
                 </p>
               </div>
-              <span className="text-blue-400">＋</span>
+              <span className="text-info">＋</span>
             </button>
           ))}
-          {filtered.length === 0 && <p className="text-sm text-slate-500">No matches.</p>}
+          {filtered.length === 0 && <p className="text-sm text-muted">No matches.</p>}
         </div>
       </div>
     </div>

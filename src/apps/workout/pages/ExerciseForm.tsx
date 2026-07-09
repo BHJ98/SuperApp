@@ -31,7 +31,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     <label className="block">
       <span className="label">{label}</span>
       {children}
-      {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
+      {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
     </label>
   );
 }
