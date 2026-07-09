@@ -56,7 +56,7 @@ export async function ebFetch(path: string, opts: RequestInit = {}): Promise<any
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 export function normaliseIban(iban: string | null | undefined): string {
