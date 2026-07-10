@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -41,6 +41,42 @@ function ThemeToggle() {
 export function Nav() {
   const [open, setOpen] = useState(false);
   const user = useCurrentUser();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus trap + Escape-to-close + focus restoration, so the overlay behaves
+  // like a real modal for keyboard/screen-reader users.
+  useEffect(() => {
+    if (!open) return;
+    closeButtonRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !menuRef.current) return;
+      const focusable = menuRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      openButtonRef.current?.focus();
+    };
+  }, [open]);
 
   return (
     <>
@@ -63,6 +99,7 @@ export function Nav() {
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <button
+            ref={openButtonRef}
             onClick={() => setOpen(true)}
             className="flex flex-col justify-center gap-[5px] p-2 rounded-lg transition-opacity hover:opacity-60"
             aria-label="Open menu"
@@ -77,6 +114,10 @@ export function Nav() {
       {/* ── Full-screen overlay menu ── */}
       {open && (
         <div
+          ref={menuRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
           className="fixed inset-0 z-50 flex flex-col px-6 pt-5 pb-8"
           style={{ background: "var(--base)" }}
         >
@@ -89,6 +130,7 @@ export function Nav() {
               SuperApp
             </span>
             <button
+              ref={closeButtonRef}
               onClick={() => setOpen(false)}
               className="p-2 rounded-lg transition-opacity hover:opacity-60"
               aria-label="Close menu"

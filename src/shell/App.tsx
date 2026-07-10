@@ -4,6 +4,7 @@ import { AuthGate } from "./AuthGate";
 import { Nav } from "./Nav";
 import { Dashboard } from "./Dashboard";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { UpdatePrompt } from "./UpdatePrompt";
 import { ToastProvider } from "@/lib/toast";
 
 const Workout   = lazy(() => import("@/apps/workout"));
@@ -42,6 +43,7 @@ export default function App() {
           </RouteErrorBoundary>
         </main>
       </div>
+      <UpdatePrompt />
       </ToastProvider>
     </AuthGate>
   );
