@@ -39,9 +39,13 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    const { requisition_id, code } = await req.json()
+    const { requisition_id, code, days } = await req.json()
     if (!requisition_id)
       return Response.json({ error: 'Missing requisition_id' }, { status: 400, headers: corsHeaders })
+    // Regular syncs pull 90 days; a one-time deep sync can request more
+    // history (capped at a year — PSD2 consent covers this, availability
+    // depends on the bank).
+    const lookbackDays = Math.min(Math.max(Number(days) || 90, 1), 366)
 
     // Load connection and verify it belongs to the caller's household — the
     // requisition id travels through browser URLs and must not grant access
@@ -108,7 +112,7 @@ Deno.serve(async (req) => {
     let totalSkipped = 0
 
     const dateFrom = new Date()
-    dateFrom.setDate(dateFrom.getDate() - 90)
+    dateFrom.setDate(dateFrom.getDate() - lookbackDays)
     const dateFromStr = dateFrom.toISOString().split('T')[0]
 
     for (const uid of accountUids) {
@@ -167,7 +171,7 @@ Deno.serve(async (req) => {
         txs.push(...(page?.transactions ?? []))
         continuation = page?.continuation_key ?? null
         pages++
-      } while (continuation && pages < 20)
+      } while (continuation && pages < 40)
 
       const rows = txs.map((t: any, idx: number) => {
         const raw = parseFloat(t.transaction_amount?.amount ?? '0')

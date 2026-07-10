@@ -86,12 +86,12 @@ export default function BankSyncPage() {
     window.location.href = data.link
   }
 
-  async function syncConnection(requisition_id: string, afterRedirect = false, code?: string) {
+  async function syncConnection(requisition_id: string, afterRedirect = false, code?: string, days?: number) {
     setSyncing(requisition_id)
     if (afterRedirect) toast('Bank verbonden! Transacties worden geladen…')
 
     const { data, error } = await supabase.functions.invoke('bank-sync', {
-      body: { requisition_id, code },
+      body: { requisition_id, code, days },
     })
     setSyncing(null)
 
@@ -105,6 +105,17 @@ export default function BankSyncPage() {
       )
     }
     loadConnections()
+  }
+
+  function syncFullYear(requisition_id: string) {
+    if (
+      confirm(
+        'Dit haalt een heel jaar aan transacties op in plaats van de gebruikelijke 90 dagen. ' +
+        'Dit hoef je maar één keer te doen. Doorgaan?',
+      )
+    ) {
+      syncConnection(requisition_id, false, undefined, 365)
+    }
   }
 
   async function deleteConnection(id: string) {
@@ -244,6 +255,15 @@ export default function BankSyncPage() {
                     >
                       <RefreshCw className={`h-4 w-4 mr-1 ${syncing === conn.requisition_id ? 'animate-spin' : ''}`} />
                       Sync
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => syncFullYear(conn.requisition_id)}
+                      disabled={syncing === conn.requisition_id}
+                      title="Haalt eenmalig een heel jaar aan transacties op in plaats van 90 dagen"
+                    >
+                      1 jaar ophalen
                     </Button>
                     <Button
                       variant="ghost"
