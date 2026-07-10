@@ -55,7 +55,7 @@ function BakjesShell() {
           background: "color-mix(in srgb, var(--base) 92%, transparent)",
         }}
       >
-        <div className="max-w-5xl mx-auto px-5 py-3 flex items-center gap-1 flex-wrap">
+        <div className="px-5 py-3 flex items-center gap-1 flex-wrap">
           <span
             className="font-display font-semibold tracking-tight mr-4"
             style={{ color: "var(--ink)" }}
@@ -85,7 +85,7 @@ function BakjesShell() {
 
       {/* Page content */}
       <div
-        className="max-w-5xl mx-auto px-5 py-4"
+        className="px-5 py-4"
         style={{ color: "var(--ink)" }}
       >
         <Routes>

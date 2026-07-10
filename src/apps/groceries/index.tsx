@@ -191,7 +191,7 @@ export default function Groceries() {
   return (
     <div className="-mx-4 -mt-4 min-h-[calc(100vh-3.25rem)]" data-app="groceries">
       <div className="h-0.5 bg-gold" />
-      <div className="mx-auto max-w-2xl px-5">
+      <div className="px-5">
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border pb-6 pt-6">
           <div>

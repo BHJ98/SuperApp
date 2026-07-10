@@ -65,7 +65,7 @@ function FinanceShell() {
           background: "color-mix(in srgb, var(--base) 92%, transparent)",
         }}
       >
-        <div className="max-w-6xl mx-auto px-5 py-3 flex items-center gap-1 flex-wrap">
+        <div className="px-5 py-3 flex items-center gap-1 flex-wrap">
           <span
             className="font-display font-semibold tracking-tight mr-3"
             style={{ color: "var(--ink)" }}
@@ -99,7 +99,7 @@ function FinanceShell() {
       </nav>
 
       {/* Page content */}
-      <div className="max-w-6xl mx-auto px-5 py-5" style={{ color: "var(--ink)" }}>
+      <div className="px-5 py-5" style={{ color: "var(--ink)" }}>
         <Routes>
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />

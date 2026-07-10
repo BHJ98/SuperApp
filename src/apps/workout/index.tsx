@@ -80,7 +80,7 @@ export default function WorkoutApp() {
             background: "color-mix(in srgb, var(--base) 92%, transparent)",
           }}
         >
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 px-5 py-3">
+          <div className="flex items-center justify-between gap-3 px-5 py-3">
             <div>
               <h2
                 className="font-display text-base font-semibold leading-none tracking-tight"
@@ -102,7 +102,7 @@ export default function WorkoutApp() {
         </div>
 
         {/* Page content */}
-        <div className="flex-1 max-w-4xl mx-auto w-full px-4 pb-24 pt-4">
+        <div className="flex-1 w-full px-4 pb-24 pt-4">
           <Routes>
             <Route index element={<Home />} />
             <Route path="exercises" element={<Exercises />} />
@@ -121,7 +121,7 @@ export default function WorkoutApp() {
 
         {/* Bottom tab nav */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-4xl justify-around px-2 py-2 backdrop-blur-md"
+          className="fixed inset-x-0 bottom-0 z-10 flex justify-around px-2 py-2 backdrop-blur-md"
           style={{
             borderTop: "1px solid var(--border)",
             background: "color-mix(in srgb, var(--base) 95%, transparent)",
