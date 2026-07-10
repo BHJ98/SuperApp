@@ -852,7 +852,7 @@ export default function TransactionsPage() {
                       >
                         Datum
                       </th>
-                      <th className="text-left py-3 px-4 font-medium">
+                      <th className="text-left py-3 px-4 font-medium max-w-[10rem]">
                         Omschrijving
                       </th>
                       <th className="text-left py-3 px-4 font-medium">
@@ -861,10 +861,15 @@ export default function TransactionsPage() {
                       <th className="text-left py-3 px-4 font-medium hidden lg:table-cell">
                         Rekening
                       </th>
-                      <th className="text-left py-3 px-4 font-medium">
+                      <th
+                        className="text-left py-3 px-4 font-medium sticky z-10 bg-muted/50 shadow-[-2px_0_0_0_var(--border)] w-[11rem]"
+                        style={{ right: "7rem" }}
+                      >
                         Categorie
                       </th>
-                      <th className="text-right py-3 px-4 font-medium">
+                      <th
+                        className="text-right py-3 px-4 font-medium sticky right-0 z-10 bg-muted/50 w-28"
+                      >
                         Bedrag
                       </th>
                     </tr>
@@ -909,7 +914,7 @@ export default function TransactionsPage() {
                         >
                           {formatDate(t.date)}
                         </td>
-                        <td className="py-3 px-4 max-w-xs">
+                        <td className="py-3 px-4 max-w-[10rem]">
                           <span className="line-clamp-1">{t.description}</span>
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap">
@@ -920,8 +925,11 @@ export default function TransactionsPage() {
                         <td className="py-3 px-4 whitespace-nowrap hidden lg:table-cell">
                           {getAccountName(t.account_id)}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-1.5">
+                        <td
+                          className="py-3 px-4 sticky z-10 shadow-[-2px_0_0_0_var(--border)] w-[11rem]"
+                          style={{ right: "7rem", backgroundColor: rowBg }}
+                        >
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {t.is_transfer && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleTransfer(t.id, false); }}
@@ -965,9 +973,10 @@ export default function TransactionsPage() {
                           </div>
                         </td>
                         <td
-                          className={`py-3 px-4 text-right whitespace-nowrap font-mono ${
+                          className={`py-3 px-4 text-right whitespace-nowrap font-mono sticky right-0 z-10 w-28 ${
                             t.amount < 0 ? "text-danger" : "text-ok"
                           }`}
+                          style={{ backgroundColor: rowBg }}
                         >
                           {formatCurrency(t.amount)}
                         </td>
