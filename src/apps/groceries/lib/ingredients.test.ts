@@ -17,16 +17,20 @@ describe("scaleAmount", () => {
     expect(scaleAmount("1,5", 2)).toBe("3");
   });
 
-  // NOTE: upstream quirk — parseFloat("1/2") === 1 and parseFloat("2-3") === 2,
-  // so the number branch fires first and the dedicated fraction/range branches
-  // are effectively dead code. These tests pin the ACTUAL ported behaviour, not
-  // the (arguably intended) fraction/range math. See docs/ACTION_ITEMS.md.
-  it("treats a fraction as its leading number (upstream quirk)", () => {
-    expect(scaleAmount("1/2", 2)).toBe("2");
+  it("scales a fraction as fraction math, not as its leading number", () => {
+    expect(scaleAmount("1/2", 2)).toBe("1");
+    expect(scaleAmount("1/2", 3)).toBe("1.5");
+    expect(scaleAmount("3/4", 2)).toBe("1.5");
   });
 
-  it("treats a range as its leading number (upstream quirk)", () => {
-    expect(scaleAmount("2-3", 2)).toBe("4");
+  it("rounds fraction results to at most 2 decimals without trailing zeros", () => {
+    expect(scaleAmount("1/3", 2)).toBe("0.67");
+    expect(scaleAmount("1/4", 3)).toBe("0.75");
+  });
+
+  it("scales both ends of a range", () => {
+    expect(scaleAmount("2-3", 2)).toBe("4-6");
+    expect(scaleAmount("2-3", 1.5)).toBe("3-4.5");
   });
 
   it("leaves unknown formats untouched", () => {

@@ -1,14 +1,10 @@
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Recipe, Ingredient } from "../types";
 import { scaleIngredients, formatIngredientsAsText } from "../lib/ingredients";
-import {
-  deleteShoppingListItem,
-  subscribeToShoppingListItems,
-  upsertShoppingListItem,
-  type ShoppingListItemRow,
-} from "../lib/data";
-import { useToast } from "@/lib/toast";
+import { CATEGORY_ORDER, categorizeIngredient } from "../lib/categorize";
+import { recipeItemKey, type ShoppingListEntry } from "../lib/useShoppingList";
+import { type ShoppingListItemRow } from "../lib/data";
 
 interface ShoppingItem extends Ingredient {
   itemKey: string;
@@ -25,15 +21,25 @@ export function ShoppingList({
   adjustedServings,
   filterRecipeIds,
   onClearFilter,
+  dbItems,
+  loading,
+  persistItem,
+  removeItem,
+  addManualItem,
 }: {
   recipes: Recipe[];
   adjustedServings: Record<string, number>;
   filterRecipeIds?: Set<string>;
   onClearFilter?: () => void;
+  dbItems: Map<string, ShoppingListItemRow>;
+  loading: boolean;
+  persistItem: (
+    item: ShoppingListEntry,
+    patch: { checked?: boolean; removed?: boolean },
+  ) => Promise<void>;
+  removeItem: (item: ShoppingListEntry) => Promise<void>;
+  addManualItem: (label: string) => Promise<void>;
 }) {
-  const { toast } = useToast();
-  const [dbItems, setDbItems] = useState<Map<string, ShoppingListItemRow>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [exitingKeys, setExitingKeys] = useState<Set<string>>(new Set());
   const [manageMode, setManageMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -45,33 +51,16 @@ export function ShoppingList({
   const [swipeOffset, setSwipeOffset] = useState(0);
   const touchStartX = useRef(0);
 
-  // Shared, persisted, realtime — both partners see the same list live.
-  useEffect(() => {
-    let unsub: (() => void) | undefined;
-    try {
-      unsub = subscribeToShoppingListItems((rows) => {
-        setDbItems(new Map(rows.map((r) => [r.itemKey, r])));
-        setLoading(false);
-      });
-    } catch {
-      setLoading(false);
-    }
-    return () => unsub?.();
-  }, []);
-
   const activeRecipes = filterRecipeIds && filterRecipeIds.size > 0
     ? recipes.filter((r) => filterRecipeIds.has(r.id))
     : recipes;
 
-  // item_key is recipe:<recipeId>:<ingredientIndex> — index-based so two
-  // identically-named ingredients in the same recipe no longer collide on
-  // one shared check/delete state.
   const recipeItems: ShoppingItem[] = activeRecipes.flatMap((recipe) => {
     const originalServings = recipe.servings || 4;
     const newServings = adjustedServings[recipe.id] || originalServings;
     const scaled = scaleIngredients(recipe.ingredients, originalServings, newServings);
     return scaled.map((ing, i) => {
-      const itemKey = `recipe:${recipe.id}:${i}`;
+      const itemKey = recipeItemKey(recipe.id, i);
       const row = dbItems.get(itemKey);
       return {
         ...ing,
@@ -101,37 +90,16 @@ export function ShoppingList({
 
   const items = [...manualItems, ...recipeItems];
 
-  const persist = useCallback(
-    async (item: ShoppingItem, patch: { checked?: boolean; removed?: boolean }) => {
-      const current = dbItems.get(item.itemKey);
-      const next: ShoppingListItemRow = {
-        itemKey: item.itemKey,
-        kind: item.kind,
-        recipeId: item.recipeId,
-        label: item.kind === "manual" ? item.name : null,
-        checked: current?.checked ?? item.checked,
-        removed: current?.removed ?? false,
-        ...patch,
-      };
-      setDbItems((prev) => new Map(prev).set(item.itemKey, next));
-      try {
-        await upsertShoppingListItem(next);
-      } catch {
-        toast("Kon wijziging niet opslaan", "error");
-        // Roll back to the last known-good state on failure.
-        setDbItems((prev) => {
-          const rolledBack = new Map(prev);
-          if (current) rolledBack.set(item.itemKey, current);
-          else rolledBack.delete(item.itemKey);
-          return rolledBack;
-        });
-      }
-    },
-    [dbItems, toast],
-  );
+  // Group by store aisle, in store-walk order; empty groups are hidden.
+  const groupedItems = CATEGORY_ORDER
+    .map((category) => ({
+      category,
+      items: items.filter((item) => categorizeIngredient(item.name) === category),
+    }))
+    .filter((group) => group.items.length > 0);
 
   function toggleCheck(item: ShoppingItem) {
-    persist(item, { checked: !item.checked });
+    persistItem(item, { checked: !item.checked });
   }
 
   function toggleSelect(key: string) {
@@ -144,19 +112,6 @@ export function ShoppingList({
 
   function selectAll() { setSelectedItems(new Set(items.map((i) => i.itemKey))); }
   function selectNone() { setSelectedItems(new Set()); }
-
-  async function removeItem(item: ShoppingItem) {
-    if (item.kind === "manual") {
-      setDbItems((prev) => { const next = new Map(prev); next.delete(item.itemKey); return next; });
-      try {
-        await deleteShoppingListItem(item.itemKey);
-      } catch {
-        toast("Kon item niet verwijderen", "error");
-      }
-    } else {
-      await persist(item, { removed: true });
-    }
-  }
 
   function deleteSelected() {
     const toRemove = items.filter((i) => selectedItems.has(i.itemKey));
@@ -174,22 +129,12 @@ export function ShoppingList({
     }, 280);
   }
 
-  async function addManualItem(e: React.FormEvent) {
+  function handleAddManualItem(e: React.FormEvent) {
     e.preventDefault();
     const label = newItemText.trim();
     if (!label) return;
     setNewItemText("");
-    const itemKey = `manual:${crypto.randomUUID()}`;
-    const row: ShoppingListItemRow = {
-      itemKey, kind: "manual", recipeId: null, label, checked: false, removed: false,
-    };
-    setDbItems((prev) => new Map(prev).set(itemKey, row));
-    try {
-      await upsertShoppingListItem(row);
-    } catch {
-      toast("Kon item niet toevoegen", "error");
-      setDbItems((prev) => { const next = new Map(prev); next.delete(itemKey); return next; });
-    }
+    addManualItem(label);
   }
 
   // ── Touch handlers ──────────────────────────────────────
@@ -236,7 +181,7 @@ export function ShoppingList({
   }
 
   const addItemForm = (
-    <form onSubmit={addManualItem} className="mb-4 flex gap-2">
+    <form onSubmit={handleAddManualItem} className="mb-4 flex gap-2">
       <input
         type="text"
         value={newItemText}
@@ -270,6 +215,114 @@ export function ShoppingList({
 
   const uncheckedCount = items.filter((i) => !i.checked).length;
   const allSelected = items.length > 0 && selectedItems.size === items.length;
+
+  function renderItem(item: ShoppingItem) {
+    const key = item.itemKey;
+    const isChecked = item.checked;
+    const isSelected = selectedItems.has(key);
+    const isSwiping = swipingKey === key;
+    const isExiting = exitingKeys.has(key);
+
+    // How far left the item is sliding
+    const offset = isExiting ? -400 : isSwiping ? swipeOffset : 0;
+    // Show red bg once dragging meaningfully
+    const swipeProgress = isSwiping ? Math.min(1, Math.abs(swipeOffset) / SWIPE_THRESHOLD) : 0;
+
+    return (
+      <div
+        key={key}
+        className="relative rounded-md overflow-hidden"
+        style={{
+          // Collapse height smoothly when exiting
+          maxHeight: isExiting ? 0 : 48,
+          opacity: isExiting ? 0 : 1,
+          transition: isExiting ? "max-height 0.28s ease, opacity 0.28s ease" : undefined,
+        }}
+      >
+        {/* Red delete background (revealed on swipe) */}
+        <div
+          className="absolute inset-0 bg-danger flex items-center justify-end pr-4"
+          style={{ opacity: swipeProgress }}
+        >
+          <span className="text-white text-xs font-semibold uppercase tracking-widest">
+            Verwijder
+          </span>
+        </div>
+
+        {/* Item row */}
+        <div
+          className={`group relative flex items-center gap-3 py-2 px-3 rounded-md transition-colors bg-bg ${
+            manageMode
+              ? isSelected
+                ? "bg-surface border border-border"
+                : "hover:bg-surface cursor-pointer"
+              : isChecked
+                ? "opacity-40"
+                : ""
+          }`}
+          style={{
+            transform: `translateX(${offset}px)`,
+            transition: isSwiping ? "none" : isExiting ? "transform 0.28s ease" : "transform 0.2s ease",
+            touchAction: manageMode ? undefined : "pan-y",
+          }}
+          onClick={() => {
+            // Don't fire click if we just finished a meaningful swipe
+            if (Math.abs(swipeOffset) > 5) return;
+            if (manageMode) toggleSelect(key); else toggleCheck(item);
+          }}
+          onTouchStart={(e) => onTouchStart(key, e)}
+          onTouchMove={(e) => onTouchMove(key, e)}
+          onTouchEnd={() => onTouchEnd(key, item)}
+          role="button"
+        >
+          {/* Checkbox */}
+          <span
+            className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+              manageMode
+                ? isSelected ? "bg-danger border-danger" : "border-border"
+                : isChecked  ? "bg-gold border-gold"       : "border-border"
+            }`}
+          >
+            {(manageMode ? isSelected : isChecked) && (
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                <path
+                  d="M2 5l2.5 2.5L8 3"
+                  stroke={manageMode ? "white" : "#0D1A0F"}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </span>
+
+          {/* Label */}
+          <div className="flex-1 min-w-0">
+            <p className={`text-xs text-ink ${!manageMode && isChecked ? "line-through" : ""}`}>
+              {(item.amount || item.unit) && (
+                <span className="text-muted">{[item.amount, item.unit].filter(Boolean).join(" ")} </span>
+              )}
+              {item.name}
+            </p>
+          </div>
+
+          {item.recipeTitle && (
+            <span className="text-xs text-muted truncate max-w-[90px] shrink-0">{item.recipeTitle}</span>
+          )}
+
+          {/* Desktop-only hover × */}
+          {!manageMode && (
+            <button
+              onClick={(e) => { e.stopPropagation(); deleteOne(item); }}
+              className="text-xs text-muted hover:text-danger hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -341,116 +394,17 @@ export function ShoppingList({
 
       {!manageMode && addItemForm}
 
-      {/* Items */}
-      <div className="space-y-0.5">
-        {items.map((item) => {
-          const key = item.itemKey;
-          const isChecked = item.checked;
-          const isSelected = selectedItems.has(key);
-          const isSwiping = swipingKey === key;
-          const isExiting = exitingKeys.has(key);
-
-          // How far left the item is sliding
-          const offset = isExiting ? -400 : isSwiping ? swipeOffset : 0;
-          // Show red bg once dragging meaningfully
-          const swipeProgress = isSwiping ? Math.min(1, Math.abs(swipeOffset) / SWIPE_THRESHOLD) : 0;
-
-          return (
-            <div
-              key={key}
-              className="relative rounded-md overflow-hidden"
-              style={{
-                // Collapse height smoothly when exiting
-                maxHeight: isExiting ? 0 : 48,
-                opacity: isExiting ? 0 : 1,
-                transition: isExiting ? "max-height 0.28s ease, opacity 0.28s ease" : undefined,
-              }}
-            >
-              {/* Red delete background (revealed on swipe) */}
-              <div
-                className="absolute inset-0 bg-danger flex items-center justify-end pr-4"
-                style={{ opacity: swipeProgress }}
-              >
-                <span className="text-white text-xs font-semibold uppercase tracking-widest">
-                  Verwijder
-                </span>
-              </div>
-
-              {/* Item row */}
-              <div
-                className={`group relative flex items-center gap-3 py-2 px-3 rounded-md transition-colors bg-bg ${
-                  manageMode
-                    ? isSelected
-                      ? "bg-surface border border-border"
-                      : "hover:bg-surface cursor-pointer"
-                    : isChecked
-                      ? "opacity-40"
-                      : ""
-                }`}
-                style={{
-                  transform: `translateX(${offset}px)`,
-                  transition: isSwiping ? "none" : isExiting ? "transform 0.28s ease" : "transform 0.2s ease",
-                  touchAction: manageMode ? undefined : "pan-y",
-                }}
-                onClick={() => {
-                  // Don't fire click if we just finished a meaningful swipe
-                  if (Math.abs(swipeOffset) > 5) return;
-                  if (manageMode) toggleSelect(key); else toggleCheck(item);
-                }}
-                onTouchStart={(e) => onTouchStart(key, e)}
-                onTouchMove={(e) => onTouchMove(key, e)}
-                onTouchEnd={() => onTouchEnd(key, item)}
-                role="button"
-              >
-                {/* Checkbox */}
-                <span
-                  className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
-                    manageMode
-                      ? isSelected ? "bg-danger border-danger" : "border-border"
-                      : isChecked  ? "bg-gold border-gold"       : "border-border"
-                  }`}
-                >
-                  {(manageMode ? isSelected : isChecked) && (
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <path
-                        d="M2 5l2.5 2.5L8 3"
-                        stroke={manageMode ? "white" : "#0D1A0F"}
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </span>
-
-                {/* Label */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs text-ink ${!manageMode && isChecked ? "line-through" : ""}`}>
-                    {(item.amount || item.unit) && (
-                      <span className="text-muted">{[item.amount, item.unit].filter(Boolean).join(" ")} </span>
-                    )}
-                    {item.name}
-                  </p>
-                </div>
-
-                {item.recipeTitle && (
-                  <span className="text-xs text-muted truncate max-w-[90px] shrink-0">{item.recipeTitle}</span>
-                )}
-
-                {/* Desktop-only hover × */}
-                {!manageMode && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteOne(item); }}
-                    className="text-xs text-muted hover:text-danger hidden sm:block opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-1"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Items, grouped by store aisle */}
+      {groupedItems.map((group) => (
+        <div key={group.category}>
+          <p className="text-xs uppercase tracking-widest text-muted mt-4 mb-1">
+            {group.category}
+          </p>
+          <div className="space-y-0.5">
+            {group.items.map((item) => renderItem(item))}
+          </div>
+        </div>
+      ))}
 
       {!manageMode && (
         <p className="text-muted text-xs uppercase tracking-widest mt-5 text-center">

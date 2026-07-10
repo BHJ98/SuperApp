@@ -2,8 +2,9 @@ import { supabase } from "@/lib/supabase";
 import type { Recipe } from "../types";
 
 // All groceries data lives in the `boodschappen` schema on the shared project.
-// Recipes are shared across allow-listed users (household); favorites and
-// meal_plans are per-user. RLS enforces both (see migration/boodschappen_schema.sql).
+// Recipes, favorites, meal_plans and the shopping list are all shared across
+// allow-listed users (household). RLS enforces access (see
+// migration/boodschappen_schema.sql + migration/boodschappen_shared_realtime.sql).
 
 export function gdb() {
   if (!supabase) throw new Error("Supabase client not configured");
@@ -67,8 +68,9 @@ export async function removeRecipe(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function listFavoriteIds(userId: string): Promise<Set<string>> {
-  const { data } = await gdb().from("favorites").select("recipe_id").eq("user_id", userId);
+// Favorites are household-wide: the union of both partners' rows.
+export async function listFavoriteIds(): Promise<Set<string>> {
+  const { data } = await gdb().from("favorites").select("recipe_id");
   return new Set((data ?? []).map((f) => (f as Row).recipe_id as string));
 }
 
@@ -76,12 +78,14 @@ export async function addFavorite(userId: string, recipeId: string): Promise<voi
   await gdb().from("favorites").insert({ user_id: userId, recipe_id: recipeId });
 }
 
-export async function removeFavorite(userId: string, recipeId: string): Promise<void> {
-  await gdb().from("favorites").delete().eq("user_id", userId).eq("recipe_id", recipeId);
+// Deletes by recipe_id only — unfavoriting removes the partner's row too.
+export async function removeFavorite(recipeId: string): Promise<void> {
+  await gdb().from("favorites").delete().eq("recipe_id", recipeId);
 }
 
-export async function listCookedRecipeIds(userId: string): Promise<Set<string>> {
-  const { data } = await gdb().from("meal_plans").select("recipe_id").eq("user_id", userId);
+// "Cooked" = ever planned by anyone in the household.
+export async function listCookedRecipeIds(): Promise<Set<string>> {
+  const { data } = await gdb().from("meal_plans").select("recipe_id");
   return new Set((data ?? []).map((mp) => (mp as Row).recipe_id as string));
 }
 
@@ -170,6 +174,67 @@ export function subscribeToShoppingListItems(
         listShoppingListItems().then((items) => {
           if (!cancelled) callback(items);
         });
+      },
+    )
+    .subscribe();
+
+  return () => {
+    cancelled = true;
+    supabase!.removeChannel(channel);
+  };
+}
+
+// Realtime recipes — fires once with the current recipes, then again on every
+// insert/update/delete from any device. Returns an unsubscribe fn.
+export function subscribeToRecipes(callback: (recipes: Recipe[]) => void): () => void {
+  if (!supabase) throw new Error("Supabase client not configured");
+  let cancelled = false;
+
+  listRecipes()
+    .then((recipes) => {
+      if (!cancelled) callback(recipes);
+    })
+    .catch(() => {
+      // Stay silent on a failed initial load — the caller keeps whatever it
+      // had rather than treating a transient error as "there are no recipes."
+    });
+
+  const channel = supabase
+    .channel("boodschappen-recipes")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "boodschappen", table: "recipes" },
+      () => {
+        if (cancelled) return;
+        listRecipes()
+          .then((recipes) => {
+            if (!cancelled) callback(recipes);
+          })
+          .catch(() => {});
+      },
+    )
+    .subscribe();
+
+  return () => {
+    cancelled = true;
+    supabase!.removeChannel(channel);
+  };
+}
+
+// Realtime meal plans — only signals "something changed"; the caller
+// (MealPlanner) refetches whatever slice (its week) it cares about.
+// Returns an unsubscribe fn.
+export function subscribeToMealPlans(callback: () => void): () => void {
+  if (!supabase) throw new Error("Supabase client not configured");
+  let cancelled = false;
+
+  const channel = supabase
+    .channel("boodschappen-meal-plans")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "boodschappen", table: "meal_plans" },
+      () => {
+        if (!cancelled) callback();
       },
     )
     .subscribe();

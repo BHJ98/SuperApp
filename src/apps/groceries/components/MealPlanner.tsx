@@ -1,7 +1,8 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Recipe } from "../types";
-import { gdb } from "../lib/data";
+import { gdb, subscribeToMealPlans } from "../lib/data";
+import { useToast } from "@/lib/toast";
 
 interface MealPlan {
   id: string;
@@ -39,56 +40,104 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
+// The week plan is household-shared (no user_id filter): both partners see
+// and edit one plan. Returns null on error so callers can keep their state.
+async function fetchWeekPlans(): Promise<MealPlan[] | null> {
+  const week = getWeekDates();
+  const { data, error } = await gdb()
+    .from("meal_plans")
+    .select("*")
+    .gte("date", formatDate(week[0]))
+    .lte("date", formatDate(week[6]));
+  if (error || !data) return null;
+  return data.map((mp) => ({
+    id: mp.id, recipeId: mp.recipe_id, date: mp.date, servings: mp.servings,
+  }));
+}
+
 export function MealPlanner({
   recipes, userId, favoriteIds, onToggleFavorite, onServingsChange, onAddToShoppingList, onRecipeCooked,
 }: MealPlannerProps) {
+  const { toast } = useToast();
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [addSearch, setAddSearch] = useState("");
 
   const weekDates = getWeekDates();
-  const supabase = gdb();
+
+  const reloadWeek = useCallback(async () => {
+    const plans = await fetchWeekPlans();
+    if (plans) setMealPlans(plans);
+  }, []);
 
   useEffect(() => {
-    async function load() {
-      const startDate = formatDate(weekDates[0]);
-      const endDate = formatDate(weekDates[6]);
-      const { data } = await supabase
-        .from("meal_plans").select("*").eq("user_id", userId)
-        .gte("date", startDate).lte("date", endDate);
-      if (data) {
-        setMealPlans(data.map((mp) => ({
-          id: mp.id, recipeId: mp.recipe_id, date: mp.date, servings: mp.servings,
-        })));
-      }
+    let cancelled = false;
+
+    fetchWeekPlans().then((plans) => {
+      if (cancelled) return;
+      if (plans) setMealPlans(plans);
       setLoading(false);
+    });
+
+    // Refetch the week whenever anyone (partner included) changes a plan.
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = subscribeToMealPlans(() => {
+        if (!cancelled) reloadWeek();
+      });
+    } catch {
+      // Supabase not configured — the parent already guards for this.
     }
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [reloadWeek]);
 
   async function addMealPlan(recipeId: string, date: string) {
     const recipe = recipes.find((r) => r.id === recipeId);
     const servings = recipe?.servings || 4;
-    const { data, error } = await supabase
+    // Upsert on (recipe_id, date): if the partner already planned this meal
+    // on this day, we update that shared row instead of erroring.
+    const { data, error } = await gdb()
       .from("meal_plans")
-      .insert({ user_id: userId, recipe_id: recipeId, date, servings })
+      .upsert(
+        { user_id: userId, recipe_id: recipeId, date, servings },
+        { onConflict: "recipe_id,date" },
+      )
       .select().single();
-    if (data && !error) {
-      setMealPlans((prev) => [...prev, { id: data.id, recipeId: data.recipe_id, date: data.date, servings: data.servings }]);
+    if (error || !data) {
+      toast("Kon maaltijd niet inplannen", "error");
+      reloadWeek();
+    } else {
+      setMealPlans((prev) => [
+        ...prev.filter((mp) => mp.id !== data.id),
+        { id: data.id, recipeId: data.recipe_id, date: data.date, servings: data.servings },
+      ]);
       onRecipeCooked(recipeId);
     }
     setAddSearch("");
   }
 
   async function removeMealPlan(id: string) {
-    await supabase.from("meal_plans").delete().eq("id", id);
+    const { error } = await gdb().from("meal_plans").delete().eq("id", id);
+    if (error) {
+      toast("Kon maaltijd niet verwijderen", "error");
+      reloadWeek();
+      return;
+    }
     setMealPlans((prev) => prev.filter((mp) => mp.id !== id));
   }
 
   async function updateServings(id: string, servings: number) {
-    await supabase.from("meal_plans").update({ servings }).eq("id", id);
+    const { error } = await gdb().from("meal_plans").update({ servings }).eq("id", id);
+    if (error) {
+      toast("Kon aantal personen niet opslaan", "error");
+      reloadWeek();
+      return;
+    }
     setMealPlans((prev) => prev.map((mp) => (mp.id === id ? { ...mp, servings } : mp)));
     const plan = mealPlans.find((mp) => mp.id === id);
     if (plan) onServingsChange(plan.recipeId, servings);
