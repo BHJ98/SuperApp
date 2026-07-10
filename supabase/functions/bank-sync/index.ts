@@ -1,6 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, ebFetch, normaliseIban } from '../_shared/enablebanking.ts'
 
+// Returns the DB-compatible bank slug (matches Accounts page values / CSV import)
+function detectBankSlug(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('rabo')) return 'rabobank'
+  if (n.includes('ing')) return 'ing'
+  if (n.includes('abn')) return 'abn_amro'
+  if (n.includes('knab')) return 'knab'
+  if (n.includes('triodos')) return 'triodos'
+  if (n.includes('bunq')) return 'bunq'
+  if (n.includes('asn')) return 'asn'
+  if (n.includes('sns')) return 'sns'
+  return 'overig'
+}
+
 // Syncs transactions from Enable Banking into public.transactions.
 // First call after the bank redirect carries the one-time `code`, which is
 // exchanged for a session (stored in bank_connections.session_id); later
@@ -113,8 +127,28 @@ Deno.serve(async (req) => {
           .from('accounts').select('id')
           .eq('household_id', householdId).eq('iban', iban).maybeSingle()
         financeAccountId = matched?.id ?? null
+
+        // No existing Finance account for this bank account yet — create
+        // one automatically, mirroring the CSV import flow. Without this, a
+        // linked bank account with no matching Finance "Rekening" was
+        // silently skipped (no error, no transactions imported).
+        if (!financeAccountId) {
+          const { data: created } = await adminClient
+            .from('accounts')
+            .insert({
+              household_id: householdId,
+              user_id: user.id,
+              name: `${conn.institution_name} ${iban.slice(-4)}`,
+              iban,
+              type: 'checking',
+              bank: detectBankSlug(conn.institution_name),
+            })
+            .select('id')
+            .single()
+          financeAccountId = created?.id ?? null
+        }
       }
-      if (!financeAccountId) continue  // no matching Finance account — skip
+      if (!financeAccountId) continue  // couldn't resolve or create a Finance account
 
       if (!conn.iban || !conn.account_id) {
         await adminClient.from('bank_connections')
