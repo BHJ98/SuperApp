@@ -836,7 +836,9 @@ export default function TransactionsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="py-3 px-4 w-10">
+                      <th
+                        className="py-3 px-4 w-10 sticky left-0 z-10 bg-muted/50"
+                      >
                         <input
                           type="checkbox"
                           checked={transactions.length > 0 && transactions.every((t) => selectedIds.has(t.id))}
@@ -844,7 +846,12 @@ export default function TransactionsPage() {
                           className="rounded border-gray-300"
                         />
                       </th>
-                      <th className="text-left py-3 px-4 font-medium">Datum</th>
+                      <th
+                        className="text-left py-3 px-4 font-medium sticky z-10 bg-muted/50 shadow-[2px_0_0_0_var(--border)]"
+                        style={{ left: "2.5rem" }}
+                      >
+                        Datum
+                      </th>
                       <th className="text-left py-3 px-4 font-medium">
                         Omschrijving
                       </th>
@@ -863,7 +870,18 @@ export default function TransactionsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((t, rowIndex) => (
+                    {transactions.map((t, rowIndex) => {
+                      // Sticky cells can't rely on the row's own (often
+                      // transparent/alpha) hover/selection classes — a
+                      // transparent sticky cell lets scrolled-away columns
+                      // bleed through underneath it. Give them an explicit
+                      // solid background matching the row's state instead.
+                      const rowBg = selectedIds.has(t.id)
+                        ? "color-mix(in srgb, var(--accent) 22%, var(--card))"
+                        : keyboardMode && focusedRowIndex === rowIndex
+                        ? "color-mix(in srgb, var(--accent) 30%, var(--card))"
+                        : "var(--card)";
+                      return (
                       <tr
                         key={t.id}
                         data-row-index={rowIndex}
@@ -876,7 +894,7 @@ export default function TransactionsPage() {
                         }}
                         onDoubleClick={() => setDetailTransaction(t)}
                       >
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 sticky left-0 z-10" style={{ backgroundColor: rowBg }}>
                           <input
                             type="checkbox"
                             checked={selectedIds.has(t.id)}
@@ -885,7 +903,10 @@ export default function TransactionsPage() {
                             className="rounded border-gray-300"
                           />
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
+                        <td
+                          className="py-3 px-4 whitespace-nowrap sticky z-10 shadow-[2px_0_0_0_var(--border)]"
+                          style={{ left: "2.5rem", backgroundColor: rowBg }}
+                        >
                           {formatDate(t.date)}
                         </td>
                         <td className="py-3 px-4 max-w-xs">
@@ -951,7 +972,8 @@ export default function TransactionsPage() {
                           {formatCurrency(t.amount)}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
