@@ -74,33 +74,35 @@ export default function WorkoutApp() {
       >
         {/* Sub-header */}
         <div
-          className="sticky top-[3.25rem] z-[5] flex items-center justify-between gap-3 px-5 py-3 backdrop-blur-md"
+          className="sticky top-[3.25rem] z-[5] backdrop-blur-md"
           style={{
             borderBottom: "1px solid var(--border)",
             background: "color-mix(in srgb, var(--base) 92%, transparent)",
           }}
         >
-          <div>
-            <h2
-              className="font-display text-base font-semibold leading-none tracking-tight"
-              style={{ color: "var(--ink)" }}
-            >
-              Workout
-            </h2>
-            {STORAGE_MODE === "local" && (
-              <span
-                className="text-[10px] uppercase tracking-widest"
-                style={{ color: "var(--muted)" }}
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 px-5 py-3">
+            <div>
+              <h2
+                className="font-display text-base font-semibold leading-none tracking-tight"
+                style={{ color: "var(--ink)" }}
               >
-                local
-              </span>
-            )}
+                Workout
+              </h2>
+              {STORAGE_MODE === "local" && (
+                <span
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "var(--muted)" }}
+                >
+                  local
+                </span>
+              )}
+            </div>
+            <ProfileToggle />
           </div>
-          <ProfileToggle />
         </div>
 
         {/* Page content */}
-        <div className="flex-1 px-4 pb-24 pt-4">
+        <div className="flex-1 max-w-4xl mx-auto w-full px-4 pb-24 pt-4">
           <Routes>
             <Route index element={<Home />} />
             <Route path="exercises" element={<Exercises />} />
@@ -119,7 +121,7 @@ export default function WorkoutApp() {
 
         {/* Bottom tab nav */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-2xl justify-around px-2 py-2 backdrop-blur-md"
+          className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-4xl justify-around px-2 py-2 backdrop-blur-md"
           style={{
             borderTop: "1px solid var(--border)",
             background: "color-mix(in srgb, var(--base) 95%, transparent)",

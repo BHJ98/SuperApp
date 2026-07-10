@@ -20,8 +20,10 @@ export default function App() {
       <div className="flex min-h-full flex-col">
         {/* Nav spans full width on all screen sizes */}
         <Nav />
-        {/* Content column is max-w-2xl centered */}
-        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-8 pt-4">
+        {/* Outer ceiling only — each app sets its own inner max-width
+            (Finance/Bakjes go wide for tables and multi-column layouts,
+            Workout/Groceries/Dashboard stay narrower for card-based lists). */}
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-4">
           <RouteErrorBoundary>
             <Suspense
               fallback={

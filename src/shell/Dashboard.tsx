@@ -29,7 +29,7 @@ const apps = [
 
 export function Dashboard() {
   return (
-    <div className="-mx-4 -mt-4">
+    <div className="-mx-4 -mt-4 max-w-4xl mx-auto">
       <ul className="group">
         {apps.map((app) => (
           <li
