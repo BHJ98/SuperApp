@@ -99,13 +99,62 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Own-account IBANs, for auto-detecting internal transfers (net-zero
-    // moves between the household's own accounts, e.g. checking -> savings).
+    // ── Phase 1: resolve EVERY linked bank account to a Finance account
+    // (auto-creating missing ones) and collect the complete set of own
+    // IBANs, BEFORE importing any transactions. Previously the own-IBAN set
+    // was built once up front, so on a first sync account B didn't exist yet
+    // while account A's transactions were imported — transfers between the
+    // two were then not flagged as is_transfer and got double-counted as
+    // income on one side and expense on the other.
     const ownIbanSet = new Set<string>()
     const { data: ownAccounts } = await adminClient
       .from('accounts').select('iban').eq('household_id', householdId)
     for (const a of ownAccounts ?? []) {
       if (a.iban) ownIbanSet.add(normaliseIban(a.iban))
+    }
+
+    const resolved: { uid: string; financeAccountId: string }[] = []
+    for (const uid of accountUids) {
+      let iban: string | null = null
+      try {
+        const details = await ebFetch(`/accounts/${uid}/details`)
+        iban = details?.account_id?.iban ?? details?.iban ?? null
+      } catch { /* fall through */ }
+      if (!iban && accountUids.length === 1) iban = conn.iban ?? null
+      if (!iban) continue
+
+      const { data: matched } = await adminClient
+        .from('accounts').select('id')
+        .eq('household_id', householdId).eq('iban', iban).maybeSingle()
+      let financeAccountId: string | null = matched?.id ?? null
+
+      if (!financeAccountId) {
+        const { data: created } = await adminClient
+          .from('accounts')
+          .insert({
+            household_id: householdId,
+            user_id: user.id,
+            name: `${conn.institution_name} ${iban.slice(-4)}`,
+            iban,
+            type: 'checking',
+            bank: detectBankSlug(conn.institution_name),
+          })
+          .select('id')
+          .single()
+        financeAccountId = created?.id ?? null
+      }
+      if (!financeAccountId) continue
+
+      ownIbanSet.add(normaliseIban(iban))
+      resolved.push({ uid, financeAccountId })
+
+      if (!conn.iban || !conn.account_id) {
+        await adminClient.from('bank_connections')
+          .update({ iban, account_id: financeAccountId, status: 'active' })
+          .eq('requisition_id', requisition_id)
+        conn.iban = iban
+        conn.account_id = financeAccountId
+      }
     }
 
     let totalImported = 0
@@ -115,50 +164,8 @@ Deno.serve(async (req) => {
     dateFrom.setDate(dateFrom.getDate() - lookbackDays)
     const dateFromStr = dateFrom.toISOString().split('T')[0]
 
-    for (const uid of accountUids) {
-      // Resolve Finance account by IBAN
-      let financeAccountId: string | null = conn.account_id ?? null
-      let iban: string | null = conn.iban ?? null
-
-      if (!iban) {
-        try {
-          const details = await ebFetch(`/accounts/${uid}/details`)
-          iban = details?.account_id?.iban ?? details?.iban ?? null
-        } catch { /* fall through */ }
-      }
-      if (iban && !financeAccountId) {
-        const { data: matched } = await adminClient
-          .from('accounts').select('id')
-          .eq('household_id', householdId).eq('iban', iban).maybeSingle()
-        financeAccountId = matched?.id ?? null
-
-        // No existing Finance account for this bank account yet — create
-        // one automatically, mirroring the CSV import flow. Without this, a
-        // linked bank account with no matching Finance "Rekening" was
-        // silently skipped (no error, no transactions imported).
-        if (!financeAccountId) {
-          const { data: created } = await adminClient
-            .from('accounts')
-            .insert({
-              household_id: householdId,
-              user_id: user.id,
-              name: `${conn.institution_name} ${iban.slice(-4)}`,
-              iban,
-              type: 'checking',
-              bank: detectBankSlug(conn.institution_name),
-            })
-            .select('id')
-            .single()
-          financeAccountId = created?.id ?? null
-        }
-      }
-      if (!financeAccountId) continue  // couldn't resolve or create a Finance account
-
-      if (!conn.iban || !conn.account_id) {
-        await adminClient.from('bank_connections')
-          .update({ iban, account_id: financeAccountId, status: 'active' })
-          .eq('requisition_id', requisition_id)
-      }
+    // ── Phase 2: import transactions per account, with the full own-IBAN set ──
+    for (const { uid, financeAccountId } of resolved) {
 
       // Fetch transactions, following continuation pages
       const txs: any[] = []
