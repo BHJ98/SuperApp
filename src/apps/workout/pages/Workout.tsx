@@ -1,14 +1,25 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProfile } from "../state/profile";
 import {
   useExerciseHistory,
+  usePersonalRecords,
   useWorkout,
   useWorkoutMutations,
 } from "../queries";
 import ExercisePicker from "../components/ExercisePicker";
-import { suggestNextSets, warmupSets, type ProgressionStatus } from "../lib/progression/engine";
-import type { Exercise, WorkoutExerciseWithSets, WorkoutSet } from "../lib/db";
+import {
+  estimateE1rm,
+  suggestNextSets,
+  warmupSets,
+  type ProgressionStatus,
+} from "../lib/progression/engine";
+import type {
+  Exercise,
+  PersonalRecords,
+  WorkoutExerciseWithSets,
+  WorkoutSet,
+} from "../lib/db";
 
 const statusStyles: Record<ProgressionStatus, string> = {
   new: "bg-subtle text-muted",
@@ -17,6 +28,16 @@ const statusStyles: Record<ProgressionStatus, string> = {
   deload: "bg-warn-soft text-warn",
 };
 
+// Rest countdown shown after completing a set. Deliberately generous —
+// short enough to keep a session moving, long enough for a real recovery.
+const DEFAULT_REST_SECONDS = 90;
+
+function fmtRest(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export default function Workout() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -24,6 +45,29 @@ export default function Workout() {
   const { data: workout, isLoading } = useWorkout(id);
   const m = useWorkoutMutations(id);
   const [picking, setPicking] = useState(false);
+
+  // Rest timer is lifted here (not per-card) so it survives switching
+  // between exercise cards mid-workout, and only one can ever be running.
+  const [restSeconds, setRestSeconds] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (restSeconds === null) return undefined;
+    const tick = setInterval(() => {
+      setRestSeconds((prev) => {
+        if (prev === null) return null;
+        if (prev <= 1) return null;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+    // Only (re)start the interval when the timer turns on/off — bumping the
+    // remaining time (e.g. "+30s") must not tear down the running interval.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restSeconds === null]);
+
+  function startRestTimer() {
+    setRestSeconds(DEFAULT_REST_SECONDS);
+  }
 
   if (isLoading || !workout) return <p className="text-muted">Loading…</p>;
 
@@ -58,6 +102,7 @@ export default function Workout() {
             we={we}
             profileId={activeProfile?.id}
             m={m}
+            onSetCompleted={startRestTimer}
           />
         ))}
       </div>
@@ -83,6 +128,29 @@ export default function Workout() {
           }}
         />
       )}
+
+      {restSeconds !== null && (
+        <div className="fixed inset-x-0 bottom-16 z-20 flex justify-center px-4">
+          <div className="card flex items-center gap-3 rounded-full px-4 py-2 shadow-lg">
+            <span className="text-sm text-muted">Rust</span>
+            <span className="min-w-[3ch] text-center font-mono text-lg font-bold tabular-nums">
+              {fmtRest(restSeconds)}
+            </span>
+            <button
+              onClick={() => setRestSeconds((s) => (s ?? 0) + 30)}
+              className="btn-ghost px-3 py-1 text-sm"
+            >
+              +30s
+            </button>
+            <button
+              onClick={() => setRestSeconds(null)}
+              className="btn-ghost px-3 py-1 text-sm"
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -93,13 +161,16 @@ function ExerciseCard({
   we,
   profileId,
   m,
+  onSetCompleted,
 }: {
   we: WorkoutExerciseWithSets;
   profileId: string | undefined;
   m: Mutations;
+  onSetCompleted: () => void;
 }) {
   const { exercise, sets } = we;
   const { data: history = [] } = useExerciseHistory(profileId, exercise.id);
+  const { data: prs } = usePersonalRecords(profileId, exercise.id);
   const [adding, setAdding] = useState(false);
 
   const targetSets = useMemo(() => {
@@ -210,14 +281,22 @@ function ExerciseCard({
       ) : (
         <>
           <div className="space-y-1.5">
-            <div className="grid grid-cols-[2rem_1fr_1fr_2.5rem] items-center gap-2 text-xs text-muted">
+            <div className="grid grid-cols-[2rem_1fr_1fr_2.75rem] items-center gap-2 text-xs text-muted">
               <span>Set</span>
               <span>kg</span>
               <span>reps</span>
               <span></span>
             </div>
             {ordered.map((s, i) => (
-              <SetRow key={s.id} set={s} index={i + 1} m={m} />
+              <SetRow
+                key={s.id}
+                set={s}
+                index={i + 1}
+                m={m}
+                incrementKg={exercise.defaultIncrementKg}
+                prs={prs}
+                onCompleted={onSetCompleted}
+              />
             ))}
           </div>
           <div className="flex gap-2">
@@ -232,9 +311,47 @@ function ExerciseCard({
   );
 }
 
-function SetRow({ set, index, m }: { set: WorkoutSet; index: number; m: Mutations }) {
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function StepButton({
+  onClick,
+  label,
+}: {
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="h-8 w-8 shrink-0 rounded-lg bg-subtle text-sm font-semibold text-ink"
+    >
+      {label}
+    </button>
+  );
+}
+
+function SetRow({
+  set,
+  index,
+  m,
+  incrementKg,
+  prs,
+  onCompleted,
+}: {
+  set: WorkoutSet;
+  index: number;
+  m: Mutations;
+  incrementKg: number;
+  prs: PersonalRecords | null | undefined;
+  onCompleted: () => void;
+}) {
   const [weight, setWeight] = useState(String(set.weightKg));
   const [reps, setReps] = useState(String(set.reps));
+  const [showPr, setShowPr] = useState(false);
   const done = !!set.completedAt;
 
   function persist() {
@@ -245,46 +362,92 @@ function SetRow({ set, index, m }: { set: WorkoutSet; index: number; m: Mutation
     }
   }
 
+  // Steppers persist immediately (feels better than waiting for blur) using
+  // the same updateSet mutation — and its existing onError toast — as the
+  // onBlur path below.
+  function stepWeight(delta: number) {
+    const w = round2(Math.max(0, (Number(weight) || 0) + delta));
+    setWeight(String(w));
+    m.updateSet.mutate({ setId: set.id, patch: { weightKg: w, reps: Number(reps) || 0 } });
+  }
+
+  function stepReps(delta: number) {
+    const r = Math.max(0, (Number(reps) || 0) + delta);
+    setReps(String(r));
+    m.updateSet.mutate({ setId: set.id, patch: { weightKg: Number(weight) || 0, reps: r } });
+  }
+
   function toggle() {
+    const completing = !done;
+    const w = Number(weight) || 0;
+    const r = Number(reps) || 0;
+
+    // Snapshot the PR *before* completeSet's onSuccess invalidates the prs
+    // query — once that refetch lands, this same set is already counted and
+    // the comparison would always read "no new record".
+    if (completing && !set.isWarmup && w > 0 && r > 0) {
+      const newE1rm = estimateE1rm(w, r);
+      const beatsWeight = w > (prs?.bestWeightKg ?? 0);
+      const beatsE1rm = newE1rm > (prs?.bestE1rm ?? 0);
+      if (beatsWeight || beatsE1rm) {
+        setShowPr(true);
+        setTimeout(() => setShowPr(false), 4000);
+      }
+    }
+
     persist();
-    m.completeSet.mutate({ setId: set.id, completed: !done });
+    m.completeSet.mutate({ setId: set.id, completed: completing });
+    if (completing) onCompleted();
   }
 
   return (
-    <div
-      className={`grid grid-cols-[2rem_1fr_1fr_2.5rem] items-center gap-2 rounded-lg px-1 py-0.5 ${
-        done ? "bg-ok-soft" : ""
-      }`}
-    >
-      <span className="text-center text-sm text-muted">
-        {set.isWarmup ? "W" : index}
-      </span>
-      <input
-        className="input py-1.5 text-center"
-        type="number"
-        inputMode="decimal"
-        value={weight}
-        onChange={(e) => setWeight(e.target.value)}
-        onBlur={persist}
-      />
-      <input
-        className="input py-1.5 text-center"
-        type="number"
-        inputMode="numeric"
-        value={reps}
-        onChange={(e) => setReps(e.target.value)}
-        onBlur={persist}
-      />
-      <div className="flex items-center justify-end gap-1">
-        <button
-          onClick={toggle}
-          className={`h-8 w-8 rounded-lg text-sm ${
-            done ? "bg-ok text-white" : "bg-subtle text-ink"
-          }`}
-        >
-          ✓
-        </button>
+    <div className="space-y-1">
+      <div
+        className={`grid grid-cols-[2rem_1fr_1fr_2.75rem] items-center gap-2 rounded-lg px-1 py-0.5 ${
+          done ? "bg-ok-soft" : ""
+        }`}
+      >
+        <span className="text-center text-sm text-muted">
+          {set.isWarmup ? "W" : index}
+        </span>
+        <div className="flex items-center gap-1">
+          <StepButton label="−" onClick={() => stepWeight(-incrementKg)} />
+          <input
+            className="input min-w-0 py-1.5 text-center"
+            type="number"
+            inputMode="decimal"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            onBlur={persist}
+          />
+          <StepButton label="+" onClick={() => stepWeight(incrementKg)} />
+        </div>
+        <div className="flex items-center gap-1">
+          <StepButton label="−" onClick={() => stepReps(-1)} />
+          <input
+            className="input min-w-0 py-1.5 text-center"
+            type="number"
+            inputMode="numeric"
+            value={reps}
+            onChange={(e) => setReps(e.target.value)}
+            onBlur={persist}
+          />
+          <StepButton label="+" onClick={() => stepReps(1)} />
+        </div>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={toggle}
+            className={`h-11 w-11 rounded-lg text-sm ${
+              done ? "bg-ok text-white" : "bg-subtle text-ink"
+            }`}
+          >
+            ✓
+          </button>
+        </div>
       </div>
+      {showPr && (
+        <p className="px-1 text-xs font-semibold text-ok">Nieuw record! 🎉</p>
+      )}
     </div>
   );
 }

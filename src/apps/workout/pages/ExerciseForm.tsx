@@ -22,7 +22,7 @@ const empty: ExerciseFormValues = {
   laterality: "bilateral",
   defaultRepMin: 8,
   defaultRepMax: 12,
-  defaultIncrementKg: 2.5,
+  defaultIncrementKg: 0.5,
   notes: "",
 };
 
@@ -132,7 +132,7 @@ export default function ExerciseForm() {
           </select>
         </Field>
         <Field label="Increment (kg)" error={errors.defaultIncrementKg}>
-          <input className="input" type="number" step="0.5" inputMode="decimal" value={values.defaultIncrementKg} onChange={(e) => set("defaultIncrementKg", Number(e.target.value))} />
+          <input className="input" type="number" step="0.25" min="0" inputMode="decimal" value={values.defaultIncrementKg} onChange={(e) => set("defaultIncrementKg", Number(e.target.value))} />
         </Field>
         <Field label="Min reps" error={errors.defaultRepMin}>
           <input className="input" type="number" inputMode="numeric" value={values.defaultRepMin} onChange={(e) => set("defaultRepMin", Number(e.target.value))} />

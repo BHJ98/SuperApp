@@ -1,6 +1,7 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { matchPath, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { ProfileProvider, useProfile } from "./state/profile";
 import { STORAGE_MODE } from "./lib/db";
+import { useWorkout } from "./queries";
 import Home from "./pages/Home";
 import Exercises from "./pages/Exercises";
 import ExerciseForm from "./pages/ExerciseForm";
@@ -12,6 +13,16 @@ import History from "./pages/History";
 import WorkoutDetail from "./pages/WorkoutDetail";
 import Stats from "./pages/Stats";
 
+// Switching profiles mid-session would silently make progression suggestions
+// reflect the wrong person's history for the rest of the workout (a bug
+// flagged in an earlier audit) — so the switcher locks while an unfinished
+// workout session is on screen.
+function useActiveSessionId(): string | undefined {
+  const location = useLocation();
+  const match = matchPath("/workout/session/:id", location.pathname);
+  return match?.params.id;
+}
+
 const navItems = [
   { to: "/workout", label: "Home", end: true },
   { to: "/workout/exercises", label: "Exercises" },
@@ -22,16 +33,24 @@ const navItems = [
 
 function ProfileToggle() {
   const { profiles, activeProfile, setActiveProfileId } = useProfile();
+  const sessionId = useActiveSessionId();
+  const { data: session } = useWorkout(sessionId);
+  const locked = !!sessionId && !!session && !session.finishedAt;
+
   if (profiles.length === 0) return null;
   return (
-    <div className="flex gap-1.5">
+    <div
+      className="flex gap-1.5"
+      title={locked ? "Kan niet wisselen tijdens een actieve workout" : undefined}
+    >
       {profiles.map((p) => {
         const active = p.id === activeProfile?.id;
         return (
           <button
             key={p.id}
-            onClick={() => setActiveProfileId(p.id)}
-            className="rounded-full px-3 py-1 text-sm font-medium transition-opacity hover:opacity-80"
+            disabled={locked}
+            onClick={() => !locked && setActiveProfileId(p.id)}
+            className="rounded-full px-3 py-1 text-sm font-medium transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
             style={
               active
                 ? { backgroundColor: p.color, color: "#fff" }
