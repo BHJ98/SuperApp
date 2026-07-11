@@ -52,6 +52,7 @@
   --accent-finance:   #2E6B45;
   --accent-bakjes:    #B04343;
   --accent-marblebag: #1F8B8B;
+  --accent-verbouwing: #C0772F;
   --accent:           var(--accent-workout);
 
   /* Elevation */
@@ -101,6 +102,7 @@
     --accent-finance:   #7BC496;
     --accent-bakjes:    #D97F7F;
     --accent-marblebag: #4FBDBD;
+    --accent-verbouwing: #E0A468;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -135,6 +137,7 @@
   --accent-finance:   #7BC496;
   --accent-bakjes:    #D97F7F;
   --accent-marblebag: #4FBDBD;
+  --accent-verbouwing: #E0A468;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -147,6 +150,7 @@
 [data-app="bakjes"]    { --accent: var(--accent-bakjes);    }
 [data-app="finance"]   { --accent: var(--accent-finance);   }
 [data-app="marblebag"] { --accent: var(--accent-marblebag); }
+[data-app="verbouwing"] { --accent: var(--accent-verbouwing); }
 
 /* ─── Bakjes scoped overrides ───────────────────────────────────── */
 /* Maps old variable names to global tokens — bakjes pages still reference

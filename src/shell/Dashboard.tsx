@@ -25,6 +25,12 @@ const apps = [
     description: "Budget envelope method",
     accent: "var(--accent-bakjes)",
   },
+  {
+    to: "/verbouwing",
+    label: "Verbouwing",
+    description: "Kosten, bonnen & budget per ruimte",
+    accent: "var(--accent-verbouwing)",
+  },
 ];
 
 export function Dashboard() {

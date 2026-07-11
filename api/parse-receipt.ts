@@ -1,0 +1,88 @@
+// Vercel serverless function: read line items off a receipt photo with Claude
+// vision, for the Verbouwing app's split editor. Only invoked on explicit user
+// request ("Bon uitlezen met AI" inside the split flow) — never automatically —
+// to keep API usage minimal. Reuses the ANTHROPIC_API_KEY already configured
+// for api/extract.ts.
+import Anthropic from "@anthropic-ai/sdk";
+
+export const config = { maxDuration: 30 };
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // ~5MB base64 payload cap
+
+export default async function handler(req: Request): Promise<Response> {
+  if (req.method !== "POST") {
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
+
+  let body: { image?: string; mediaType?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Ongeldige aanvraag" }, { status: 400 });
+  }
+
+  const image = body.image ?? "";
+  const mediaType = body.mediaType ?? "image/jpeg";
+  if (!image) {
+    return Response.json({ error: "Geen afbeelding meegestuurd" }, { status: 400 });
+  }
+  if (image.length > MAX_IMAGE_BYTES * 1.4) {
+    return Response.json({ error: "Afbeelding te groot (max ~5MB)" }, { status: 400 });
+  }
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mediaType)) {
+    return Response.json({ error: "Alleen JPEG/PNG/WebP wordt ondersteund" }, { status: 400 });
+  }
+
+  const client = new Anthropic();
+  try {
+    const msg = await client.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType as "image/jpeg" | "image/png" | "image/webp",
+                data: image,
+              },
+            },
+            {
+              type: "text",
+              text:
+                "Dit is een kassabon of factuur (Nederlands). Lees de individuele " +
+                "regelitems uit. Antwoord UITSLUITEND met JSON in dit formaat, geen " +
+                "andere tekst:\n" +
+                '{"supplier": "winkelnaam of null", "date": "YYYY-MM-DD of null", ' +
+                '"total": 123.45, "lines": [{"description": "omschrijving", "amount": 12.34}]}\n' +
+                "Bedragen als positieve getallen met punt als decimaalteken. Sla " +
+                "kortingsregels op als negatieve amounts. Statiegeld, emballage en " +
+                "btw-subtotalen niet als aparte regels opnemen tenzij ze het totaal " +
+                "beïnvloeden. Als de bon onleesbaar is, geef {\"error\": \"onleesbaar\"}.",
+            },
+          ],
+        },
+      ],
+    });
+
+    const text = msg.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return Response.json({ error: "Kon de bon niet uitlezen" }, { status: 422 });
+    }
+    const parsed = JSON.parse(match[0]);
+    if (parsed.error) {
+      return Response.json({ error: "Bon is onleesbaar — probeer een scherpere foto" }, { status: 422 });
+    }
+    return Response.json(parsed);
+  } catch (err) {
+    console.error("parse-receipt failed:", err);
+    return Response.json({ error: "Bon uitlezen mislukt — probeer het opnieuw" }, { status: 500 });
+  }
+}

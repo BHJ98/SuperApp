@@ -12,6 +12,7 @@ const Groceries = lazy(() => import("@/apps/groceries"));
 const Finance   = lazy(() => import("@/apps/finance"));
 const Bakjes    = lazy(() => import("@/apps/bakjes"));
 const Marblebag = lazy(() => import("@/apps/marblebag"));
+const Verbouwing = lazy(() => import("@/apps/verbouwing"));
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
                 <Route path="/finance/*"   element={<Finance />} />
                 <Route path="/bakjes/*"    element={<Bakjes />} />
                 <Route path="/marblebag/*" element={<Marblebag />} />
+                <Route path="/verbouwing/*" element={<Verbouwing />} />
                 <Route path="*"            element={<NotFound />} />
               </Routes>
             </Suspense>

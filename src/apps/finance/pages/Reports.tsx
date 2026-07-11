@@ -76,6 +76,9 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState(defaultRange.end);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [includeIncome, setIncludeIncome] = useState(false);
+  // Verbouwing-uitgaven (Verbouwing-app) tellen standaard niet mee in de
+  // huishoudcijfers; met deze toggle kunnen ze meegenomen worden.
+  const [includeVerbouwing, setIncludeVerbouwing] = useState(false);
 
   // Data
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -107,6 +110,19 @@ export default function ReportsPage() {
     const prevRange = getPreviousPeriodRange(periodType, startDate, endDate);
     const lastYearRange = getSameMonthLastYear(startDate, endDate);
 
+    // Gedeelde basisquery voor de drie periodes; verbouwing-uitgaven worden
+    // standaard uitgefilterd (server-side op de is_verbouwing-vlag).
+    const txQuery = (start: string, end: string) => {
+      let q = supabase
+        .from("transactions")
+        .select("id, account_id, category_id, amount, date, description, counterparty_name, is_categorized")
+        .eq("is_transfer", false)
+        .gte("date", start)
+        .lte("date", end);
+      if (!includeVerbouwing) q = q.eq("is_verbouwing", false);
+      return q;
+    };
+
     const [
       transactionsRes,
       prevTransactionsRes,
@@ -114,25 +130,9 @@ export default function ReportsPage() {
       budgetsRes,
       viewsRes,
     ] = await Promise.all([
-      supabase
-        .from("transactions")
-        .select("id, account_id, category_id, amount, date, description, counterparty_name, is_categorized")
-        .eq("is_transfer", false)
-        .gte("date", startDate)
-        .lte("date", endDate)
-        .order("date", { ascending: false }),
-      supabase
-        .from("transactions")
-        .select("id, account_id, category_id, amount, date, description, counterparty_name, is_categorized")
-        .eq("is_transfer", false)
-        .gte("date", prevRange.start)
-        .lte("date", prevRange.end),
-      supabase
-        .from("transactions")
-        .select("id, account_id, category_id, amount, date, description, counterparty_name, is_categorized")
-        .eq("is_transfer", false)
-        .gte("date", lastYearRange.start)
-        .lte("date", lastYearRange.end),
+      txQuery(startDate, endDate).order("date", { ascending: false }),
+      txQuery(prevRange.start, prevRange.end),
+      txQuery(lastYearRange.start, lastYearRange.end),
       supabase.from("budgets").select("id, category_id, amount, period, cost_type").limit(500),
       supabase.from("saved_views").select("id, name, filters").eq("user_id", user.id).limit(50),
     ]);
@@ -162,7 +162,7 @@ export default function ReportsPage() {
       setError("Kon rapportages niet laden. Controleer je internetverbinding.");
       setLoading(false);
     }
-  }, [supabase, startDate, endDate, periodType]);
+  }, [supabase, startDate, endDate, periodType, includeVerbouwing]);
 
   useEffect(() => {
     loadData();
@@ -527,6 +527,15 @@ export default function ReportsPage() {
               className="rounded border-gray-300"
             />
             Incl. inkomsten
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeVerbouwing}
+              onChange={(e) => setIncludeVerbouwing(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Incl. verbouwing
           </label>
         </div>
 

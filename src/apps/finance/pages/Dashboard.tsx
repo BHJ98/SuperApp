@@ -72,6 +72,9 @@ export default function DashboardPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  // Verbouwing-uitgaven (Verbouwing-app) tellen standaard niet mee in de
+  // huishoudcijfers; met deze toggle kunnen ze meegenomen worden.
+  const [includeVerbouwing, setIncludeVerbouwing] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -87,14 +90,20 @@ export default function DashboardPage() {
     const threeMonthsAgo = new Date(year, month - 3, 1);
     const threeMonthStart = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`;
 
+    // Maand-transacties, standaard zonder verbouwing-uitgaven (server-side op
+    // de is_verbouwing-vlag). NB: de 3-maands trend hieronder komt uit een
+    // server-side RPC die deze filter niet kent en dus altijd alles meetelt.
+    let monthTxQuery = supabase
+      .from("transactions")
+      .select("category_id, account_id, amount, date")
+      .eq("is_transfer", false)
+      .gte("date", startOfMonth)
+      .lte("date", endStr);
+    if (!includeVerbouwing) monthTxQuery = monthTxQuery.eq("is_verbouwing", false);
+
     const [transactionsRes, transfersRes, budgetsRes, goalsRes, balancesRes, trendRes] =
       await Promise.all([
-        supabase
-          .from("transactions")
-          .select("category_id, account_id, amount, date")
-          .eq("is_transfer", false)
-          .gte("date", startOfMonth)
-          .lte("date", endStr),
+        monthTxQuery,
         // Transfers are excluded above (rightly — they're not income/expense),
         // but fetched separately so we can still show "moved to savings" as
         // its own line instead of making that money vanish from the dashboard.
@@ -133,7 +142,7 @@ export default function DashboardPage() {
       setError(msg);
       setLoading(false);
     }
-  }, [supabase, selectedMonth]);
+  }, [supabase, selectedMonth, includeVerbouwing]);
 
   useEffect(() => {
     loadData();
@@ -362,17 +371,28 @@ export default function DashboardPage() {
       {/* Header with month selector */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="w-48"
-        >
-          {getMonthOptions().map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </Select>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeVerbouwing}
+              onChange={(e) => setIncludeVerbouwing(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Incl. verbouwing
+          </label>
+          <Select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="w-48"
+          >
+            {getMonthOptions().map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
       {/* Summary cards */}

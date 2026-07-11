@@ -123,6 +123,9 @@ export type Database = {
           category_id: string | null;
           is_categorized: boolean;
           is_transfer: boolean;
+          /** Gemarkeerd als verbouwing-uitgave (bijgehouden door een trigger
+           *  op verbouwing.expenses — zie migration/verbouwing_schema.sql). */
+          is_verbouwing: boolean;
           import_hash: string;
           created_at: string;
         };
@@ -137,6 +140,7 @@ export type Database = {
           category_id?: string | null;
           is_categorized?: boolean;
           is_transfer?: boolean;
+          is_verbouwing?: boolean;
           import_hash: string;
           created_at?: string;
         };
@@ -151,6 +155,7 @@ export type Database = {
           category_id?: string | null;
           is_categorized?: boolean;
           is_transfer?: boolean;
+          is_verbouwing?: boolean;
           import_hash?: string;
           created_at?: string;
         };

@@ -9,6 +9,7 @@ const appLinks = [
   { to: "/groceries", label: "Boodschappen", accent: "var(--accent-groceries)" },
   { to: "/finance",   label: "Finance",      accent: "var(--accent-finance)" },
   { to: "/bakjes",    label: "Bakjes",        accent: "var(--accent-bakjes)" },
+  { to: "/verbouwing", label: "Verbouwing",  accent: "var(--accent-verbouwing)" },
   { to: "/marblebag", label: "Marblebag",    accent: "var(--accent-marblebag)" },
 ];
 
