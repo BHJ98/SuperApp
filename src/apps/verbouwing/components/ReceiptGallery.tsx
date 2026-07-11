@@ -250,6 +250,7 @@ export default function ReceiptGallery({
           role="dialog"
           aria-modal="true"
           aria-label="Bonfoto"
+          data-receipt-lightbox
         >
           <button
             type="button"

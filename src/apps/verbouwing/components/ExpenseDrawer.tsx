@@ -174,7 +174,11 @@ export default function ExpenseDrawer({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") requestClose();
+      if (e.key !== "Escape") return;
+      // Staat de bon-lightbox (in ReceiptGallery) open, dan handelt die de
+      // Escape af — niet de drawer sluiten.
+      if (document.querySelector("[data-receipt-lightbox]")) return;
+      requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
