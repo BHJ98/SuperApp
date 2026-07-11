@@ -116,10 +116,13 @@ export default function DashboardPage() {
         supabase.from("budgets").select("id, category_id, amount, period, cost_type").limit(500),
         supabase.from("savings_goals").select("id, name, target_amount, current_amount, monthly_contribution, account_id").limit(100),
         supabase.from("account_balances").select("account_id, balance"),
-        // Server-side aggregation for 3-month trend (falls back gracefully if RPC not available)
+        // Server-side aggregation for 3-month trend, met dezelfde verbouwing-filter
+        // als de maandcijfers. Valt terug op client-side berekening als de
+        // (3-arg) RPC nog niet gedeployed is (migratie nog niet gedraaid).
         supabase.rpc("get_monthly_income_expenses", {
           p_start_date: threeMonthStart,
           p_end_date: endStr,
+          p_include_verbouwing: includeVerbouwing,
         }),
       ]);
 
@@ -128,10 +131,24 @@ export default function DashboardPage() {
     if (budgetsRes.data) setBudgets(budgetsRes.data);
     if (goalsRes.data) setSavingsGoals(goalsRes.data);
     if (balancesRes.data) setAccountBalances(balancesRes.data);
-    // Use server-aggregated trend data or fall back to empty
-    if (trendRes.data) {
-      setThreeMonthTransactions([]); // No longer needed client-side
-      setServerTrend(trendRes.data as { month: string; income: number; expenses: number }[]);
+    // Trend: server-aggregatie (respecteert nu de verbouwing-filter) óf, als de
+    // 3-arg RPC nog niet bestaat, een client-side fallback mét dezelfde filter.
+    if (!trendRes.error) {
+      setThreeMonthTransactions([]);
+      setServerTrend(
+        (trendRes.data ?? []) as { month: string; income: number; expenses: number }[],
+      );
+    } else {
+      setServerTrend([]);
+      let fallbackQuery = supabase
+        .from("transactions")
+        .select("category_id, account_id, amount, date")
+        .eq("is_transfer", false)
+        .gte("date", threeMonthStart)
+        .lte("date", endStr);
+      if (!includeVerbouwing) fallbackQuery = fallbackQuery.eq("is_verbouwing", false);
+      const fallbackRes = await fallbackQuery;
+      setThreeMonthTransactions(fallbackRes.data ?? []);
     }
 
     setLoading(false);
@@ -279,8 +296,9 @@ export default function DashboardPage() {
     }
     const monthMap = new Map<string, { income: number; expenses: number }>();
     for (const t of threeMonthTransactions) {
-      const d = new Date(t.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      // Maand uit de datumstring ("YYYY-MM-…") i.p.v. new Date() — voorkomt een
+      // tijdzone-off-by-one op maandgrenzen.
+      const key = t.date.slice(0, 7);
       if (!monthMap.has(key)) monthMap.set(key, { income: 0, expenses: 0 });
       const entry = monthMap.get(key)!;
       if (t.amount > 0) entry.income += t.amount;
