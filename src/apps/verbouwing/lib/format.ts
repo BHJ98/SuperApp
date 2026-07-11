@@ -9,11 +9,21 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(date: string | Date): string {
+  // Date-only strings ("YYYY-MM-DD") lokaal parsen; `new Date("2026-01-01")`
+  // interpreteert die als UTC-middernacht, wat in negatieve tijdzones een dag
+  // terug kan vallen.
+  let d: Date;
+  if (typeof date === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(date);
+  } else {
+    d = date;
+  }
   return new Intl.DateTimeFormat("nl-NL", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(d);
 }
 
 export function formatMonth(yearMonth: string): string {

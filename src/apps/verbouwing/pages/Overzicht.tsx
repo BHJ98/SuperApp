@@ -12,6 +12,7 @@ import {
 } from "../lib/data";
 import { buildRoomBudgetTree, effectiveRoomBudget, totalEffectiveBudget } from "../lib/budget";
 import { formatCurrency, formatMonth } from "../lib/format";
+import { useDebouncedCallback } from "../lib/useDebouncedCallback";
 
 // Eigen financiële rapportage van de verbouwing: besteed vs. budget (totaal,
 // per ruimte en per subdeel), verdeling per ruimte en verloop per maand.
@@ -76,11 +77,13 @@ export default function Overzicht() {
     }
   }, []);
 
+  const debouncedLoad = useDebouncedCallback(load);
+
   useEffect(() => {
     load();
-    const unsubs = LIVE_TABLES.map((t) => subscribeVerbouwing(t, load));
+    const unsubs = LIVE_TABLES.map((t) => subscribeVerbouwing(t, debouncedLoad));
     return () => unsubs.forEach((u) => u());
-  }, [load]);
+  }, [load, debouncedLoad]);
 
   const spentByRoom = useMemo(() => {
     const map = new Map<string, number>();
@@ -145,14 +148,31 @@ export default function Overzicht() {
           .join(", ")})`
       : undefined;
 
-  // Uitgaven per maand (chronologisch).
+  // Uitgaven per maand (chronologisch), inclusief tussenliggende maanden zonder
+  // uitgaven (op €0) zodat de tijdlijn geen misleidende gaten overslaat.
   const perMonth = useMemo(() => {
     const map = new Map<string, number>();
     for (const e of expenses) {
       const key = e.date.slice(0, 7);
       map.set(key, (map.get(key) ?? 0) + e.total_amount);
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    const keys = Array.from(map.keys()).sort();
+    if (keys.length === 0) return [] as [string, number][];
+    const [firstYear, firstMonth] = keys[0].split("-").map(Number);
+    const [lastYear, lastMonth] = keys[keys.length - 1].split("-").map(Number);
+    const out: [string, number][] = [];
+    let y = firstYear;
+    let m = firstMonth;
+    while (y < lastYear || (y === lastYear && m <= lastMonth)) {
+      const key = `${y}-${String(m).padStart(2, "0")}`;
+      out.push([key, map.get(key) ?? 0]);
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+    }
+    return out;
   }, [expenses]);
   const maxMonth = Math.max(1, ...perMonth.map(([, v]) => v));
 

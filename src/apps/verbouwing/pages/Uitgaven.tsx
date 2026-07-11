@@ -10,6 +10,7 @@ import {
   type VerbouwingTable,
 } from "../lib/data";
 import { formatCurrency, formatDate } from "../lib/format";
+import { useDebouncedCallback } from "../lib/useDebouncedCallback";
 import ExpenseDrawer from "../components/ExpenseDrawer";
 
 const LIVE_TABLES: VerbouwingTable[] = ["expenses", "expense_parts", "receipts"];
@@ -38,12 +39,16 @@ export default function Uitgaven() {
     }
   }, []);
 
+  // Realtime-events gedebounced: één opgeslagen (split)uitgave vuurt meerdere
+  // events af, maar dat hoeft maar één herlaad op te leveren.
+  const debouncedLoad = useDebouncedCallback(load);
+
   useEffect(() => {
     load();
     // Live meebewegen met wijzigingen (ook vanaf andere toestellen).
-    const unsubs = LIVE_TABLES.map((t) => subscribeVerbouwing(t, load));
+    const unsubs = LIVE_TABLES.map((t) => subscribeVerbouwing(t, debouncedLoad));
     return () => unsubs.forEach((u) => u());
-  }, [load]);
+  }, [load, debouncedLoad]);
 
   const roomOptions = useMemo(() => flattenRooms(rooms), [rooms]);
   const roomNameById = useMemo(() => {

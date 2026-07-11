@@ -153,56 +153,44 @@ export type NewPart = {
 };
 
 /**
- * "Atomically-ish": eerst de expense, dan de parts. Mislukt de parts-insert,
- * dan wordt de zojuist aangemaakte expense weer opgeruimd zodat er geen
- * uitgave zonder verdeling achterblijft.
+ * Nieuwe uitgave + verdeling in één transactie via een RPC (zie
+ * migration/verbouwing_atomic_writes.sql). De DB valideert dat de parts
+ * optellen tot het totaal en rolt bij een fout alles terug — er blijft nooit
+ * een uitgave zonder verdeling achter.
  */
 export async function createExpense(expense: NewExpense, parts: NewPart[]): Promise<Expense> {
-  const { data, error } = await vdb().from("expenses").insert(expense).select().single();
+  const { data, error } = await vdb().rpc("create_expense_with_parts", {
+    p_expense: expense,
+    p_parts: parts,
+  });
   if (error) throw new Error(error.message);
-  const created = data as Expense;
-
-  const { error: partsError } = await vdb()
-    .from("expense_parts")
-    .insert(parts.map((p) => ({ ...p, expense_id: created.id })));
-  if (partsError) {
-    await vdb().from("expenses").delete().eq("id", created.id);
-    throw new Error(partsError.message);
-  }
-  return created;
+  return data as Expense;
 }
 
-/** Bewerken: update de expense en vervang de parts (delete + reinsert). */
+/** Bewerken: update de expense en vervang de parts, atomair via dezelfde RPC-laag. */
 export async function updateExpense(
   id: string,
   patch: Omit<NewExpense, "transaction_id">,
   parts: NewPart[],
 ): Promise<void> {
-  const { error } = await vdb().from("expenses").update(patch).eq("id", id);
+  const { error } = await vdb().rpc("update_expense_with_parts", {
+    p_id: id,
+    p_patch: patch,
+    p_parts: parts,
+  });
   if (error) throw new Error(error.message);
-
-  const { error: delError } = await vdb().from("expense_parts").delete().eq("expense_id", id);
-  if (delError) throw new Error(delError.message);
-
-  const { error: insError } = await vdb()
-    .from("expense_parts")
-    .insert(parts.map((p) => ({ ...p, expense_id: id })));
-  if (insError) throw new Error(insError.message);
 }
 
 /**
- * Verwijdert een uitgave: eerst de bonfoto's uit de bucket (rows casceren,
- * storage-objecten niet), dan de expense zelf. Bij een bank-gekoppelde uitgave
- * zet de DB-trigger is_verbouwing terug op false, waardoor de transactie
- * vanzelf weer in de beoordelen-inbox verschijnt; een eventueel (defensief)
- * aanwezige dismissed-rij wordt ook opgeruimd.
+ * Verwijdert een uitgave. Eerst de DB-rij (receipts casceren mee: de
+ * bron-van-waarheid is direct consistent), dán best-effort de storage-objecten
+ * opruimen — een storage-fout laat hooguit een wees-bestand achter, nooit een
+ * dangling receipts-rij die naar een verdwenen bestand wijst. Bij een
+ * bank-gekoppelde uitgave zet de DB-trigger is_verbouwing terug op false,
+ * waardoor de transactie vanzelf weer in de beoordelen-inbox verschijnt; een
+ * eventueel (defensief) aanwezige dismissed-rij wordt ook opgeruimd.
  */
 export async function deleteExpense(expense: Expense): Promise<void> {
-  const { data: files } = await bonnen().list(expense.id);
-  if (files && files.length > 0) {
-    await bonnen().remove(files.map((f) => `${expense.id}/${f.name}`));
-  }
-
   const { error } = await vdb().from("expenses").delete().eq("id", expense.id);
   if (error) throw new Error(error.message);
 
@@ -211,6 +199,20 @@ export async function deleteExpense(expense: Expense): Promise<void> {
       .from("dismissed_transactions")
       .delete()
       .eq("transaction_id", expense.transaction_id);
+  }
+
+  // Storage best-effort opruimen, met paginatie (bucket.list pagineert per 100).
+  try {
+    const toRemove: string[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data: files } = await bonnen().list(expense.id, { limit: 100, offset });
+      if (!files || files.length === 0) break;
+      for (const f of files) toRemove.push(`${expense.id}/${f.name}`);
+      if (files.length < 100) break;
+    }
+    if (toRemove.length > 0) await bonnen().remove(toRemove);
+  } catch {
+    // Wees-bestanden zijn onschadelijk; de DB is al consistent.
   }
 }
 
@@ -225,6 +227,46 @@ export async function dismissTransactions(ids: string[]): Promise<void> {
       { onConflict: "transaction_id", ignoreDuplicates: true },
     );
   if (error) throw new Error(error.message);
+}
+
+/** Zet weggezette ("niet relevant") transacties terug naar de inbox. */
+export async function undismissTransactions(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await vdb()
+    .from("dismissed_transactions")
+    .delete()
+    .in("transaction_id", ids);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * De weggezette transacties, verrijkt met hun banktransactie-details, nieuwste
+ * eerst — voor de "Niet relevant"-lijst in Beoordelen (met terugzet-actie).
+ */
+export async function listDismissedTransactions(): Promise<InboxTransaction[]> {
+  const { data: dismissed, error } = await vdb()
+    .from("dismissed_transactions")
+    .select("transaction_id")
+    .order("dismissed_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const ids = (dismissed ?? [])
+    .map((d) => (d as { transaction_id: string }).transaction_id)
+    .filter(Boolean);
+  if (ids.length === 0) return [];
+
+  // De details in behapbare brokken ophalen (vermijdt een te lange URL).
+  const byId = new Map<string, InboxTransaction>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    const { data, error: txError } = await pdb()
+      .from("transactions")
+      .select("id, date, amount, description, counterparty_name")
+      .in("id", chunk);
+    if (txError) throw new Error(txError.message);
+    for (const t of (data ?? []) as InboxTransaction[]) byId.set(t.id, t);
+  }
+  // Volgorde van dismissed_at behouden.
+  return ids.map((id) => byId.get(id)).filter((t): t is InboxTransaction => !!t);
 }
 
 /**
@@ -409,9 +451,17 @@ export async function parseReceipt(
   imageBase64: string,
   mediaType: string,
 ): Promise<ParsedReceipt> {
+  // Stuur het Supabase-access-token mee zodat het endpoint de aanvraag kan
+  // authenticeren (het endpoint roept anders een betaalde AI-service open aan).
+  const { data: sessionData } = await pdb().auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Geen actieve sessie — log opnieuw in");
   const res = await fetch("/api/parse-receipt", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ image: imageBase64, mediaType }),
   });
   const body: unknown = await res.json().catch(() => null);

@@ -9,9 +9,36 @@ export const config = { maxDuration: 30 };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // ~5MB base64 payload cap
 
+/**
+ * Verifieert het meegestuurde Supabase-access-token bij de Supabase-auth-API.
+ * Aanmelden is beperkt tot de allow-list (gesloten registratie), dus een geldig
+ * token = een toegestane gebruiker. Zonder dit zou dit een open, geld-kostende
+ * proxy naar de Anthropic-API zijn.
+ */
+async function isAuthenticated(req: Request): Promise<boolean> {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  const url = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return false;
+  try {
+    const res = await fetch(`${url}/auth/v1/user`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
+
+  if (!(await isAuthenticated(req))) {
+    return Response.json({ error: "Niet geautoriseerd" }, { status: 401 });
   }
 
   let body: { image?: string; mediaType?: string };

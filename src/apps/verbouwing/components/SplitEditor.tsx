@@ -228,6 +228,7 @@ export default function SplitEditor({
             </button>
             <span className="text-xs text-muted">
               Leest de regelitems van de eerste bonfoto en helpt ze aan ruimtes toe te wijzen.
+              Gebruikt de AI-service — alleen als je hierop klikt.
             </span>
           </div>
         ) : (

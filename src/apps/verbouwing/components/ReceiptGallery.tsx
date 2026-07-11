@@ -27,6 +27,37 @@ export default function ReceiptGallery({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Signed thumbnail-urls (1 uur geldig), gecached per storage_path.
   const [urls, setUrls] = useState<Record<string, string>>({});
+  // Lightbox: toont één bonfoto groot, met een vers opgehaalde signed-URL
+  // (thumbnail-URL kan verlopen zijn bij een lang openstaande drawer).
+  const [lightbox, setLightbox] = useState<{ loading: boolean; url: string | null }>({
+    loading: false,
+    url: null,
+  });
+  const lightboxOpen = lightbox.loading || lightbox.url !== null;
+
+  async function openLightbox(storagePath: string) {
+    setLightbox({ loading: true, url: null });
+    try {
+      const url = await getReceiptSignedUrl(storagePath);
+      setLightbox({ loading: false, url });
+    } catch {
+      setLightbox({ loading: false, url: null });
+      toast("Kon bonfoto niet laden", "error");
+    }
+  }
+
+  function openPendingLightbox(url: string) {
+    setLightbox({ loading: false, url });
+  }
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox({ loading: false, url: null });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +176,7 @@ export default function ReceiptGallery({
                   <button
                     type="button"
                     className="block w-full"
-                    onClick={() => window.open(url, "_blank", "noopener")}
+                    onClick={() => openLightbox(r.storage_path)}
                     title="Open volledige foto"
                   >
                     <img
@@ -175,11 +206,18 @@ export default function ReceiptGallery({
           })}
           {pendingFiles.map((_, i) => (
             <div key={`pending-${i}`} className="relative">
-              <img
-                src={pendingPreviews[i]}
-                alt="Nieuwe bonfoto"
-                className="h-20 w-full rounded-lg border border-border object-cover"
-              />
+              <button
+                type="button"
+                className="block w-full"
+                onClick={() => openPendingLightbox(pendingPreviews[i])}
+                title="Bekijk foto"
+              >
+                <img
+                  src={pendingPreviews[i]}
+                  alt="Nieuwe bonfoto"
+                  className="h-20 w-full rounded-lg border border-border object-cover"
+                />
+              </button>
               <span className="absolute bottom-1 left-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
                 nieuw
               </span>
@@ -203,6 +241,35 @@ export default function ReceiptGallery({
         <p className="mt-1 text-xs text-muted">
           Foto's worden geüpload zodra je de uitgave opslaat.
         </p>
+      )}
+
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightbox({ loading: false, url: null })}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bonfoto"
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox({ loading: false, url: null })}
+            className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white"
+            aria-label="Sluiten"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {lightbox.loading || !lightbox.url ? (
+            <LoaderCircle className="h-8 w-8 animate-spin text-white" />
+          ) : (
+            <img
+              src={lightbox.url}
+              alt="Bonfoto"
+              className="max-h-[90vh] max-w-full rounded-lg object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </div>
       )}
     </div>
   );

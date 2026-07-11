@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, LoaderCircle, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useToast } from "@/lib/toast";
 import type { Room } from "../types";
 import {
@@ -53,8 +62,16 @@ export default function Ruimtes() {
     return () => unsub();
   }, [load]);
 
-  const topRooms = useMemo(() => rooms.filter((r) => !r.parent_id), [rooms]);
-  const childrenByParent = useMemo(() => groupChildrenByParent(rooms), [rooms]);
+  // Op sort_order gesorteerd zodat optimistische herordening direct zichtbaar is.
+  const sortedRooms = useMemo(
+    () =>
+      [...rooms].sort(
+        (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
+      ),
+    [rooms],
+  );
+  const topRooms = useMemo(() => sortedRooms.filter((r) => !r.parent_id), [sortedRooms]);
+  const childrenByParent = useMemo(() => groupChildrenByParent(sortedRooms), [sortedRooms]);
   const roomBudgetTree = useMemo(() => buildRoomBudgetTree(rooms), [rooms]);
   const grandTotal = useMemo(() => totalEffectiveBudget(roomBudgetTree), [roomBudgetTree]);
   const effectiveBudgetByRoomId = useMemo(
@@ -93,6 +110,36 @@ export default function Ruimtes() {
       toast("Ruimte opgeslagen");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Opslaan mislukt", "error");
+    }
+  }
+
+  /** Wisselt een ruimte/subdeel van plek met haar buur (via sort_order). */
+  async function moveRoom(room: Room, dir: -1 | 1) {
+    const siblings = room.parent_id
+      ? childrenByParent.get(room.parent_id) ?? []
+      : topRooms;
+    const idx = siblings.findIndex((r) => r.id === room.id);
+    const target = siblings[idx + dir];
+    if (!target) return;
+    const aOrder = room.sort_order;
+    const bOrder = target.sort_order;
+    setRooms((prev) =>
+      prev.map((r) =>
+        r.id === room.id
+          ? { ...r, sort_order: bOrder }
+          : r.id === target.id
+          ? { ...r, sort_order: aOrder }
+          : r,
+      ),
+    );
+    try {
+      await Promise.all([
+        updateRoom(room.id, { sort_order: bOrder }),
+        updateRoom(target.id, { sort_order: aOrder }),
+      ]);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Kon volgorde niet opslaan", "error");
+      load();
     }
   }
 
@@ -228,6 +275,10 @@ export default function Ruimtes() {
       );
     }
     const effectiveBudget = hasChildren ? effectiveBudgetByRoomId.get(room.id) ?? null : room.budget;
+    const siblings = isChild ? childrenByParent.get(room.parent_id ?? "") ?? [] : topRooms;
+    const sibIdx = siblings.findIndex((r) => r.id === room.id);
+    const isFirst = sibIdx <= 0;
+    const isLast = sibIdx === siblings.length - 1;
     return (
       <div className={`group flex items-center gap-2 py-2 ${isChild ? "pl-8" : ""}`}>
         <span className={`min-w-0 flex-1 truncate text-sm ${isChild ? "" : "font-medium"}`}>
@@ -242,6 +293,24 @@ export default function Ruimtes() {
           )}
         </div>
         <div className="flex gap-1">
+          <button
+            className="rounded-lg p-1.5 text-muted transition hover:text-ink disabled:opacity-30"
+            onClick={() => moveRoom(room, -1)}
+            disabled={isFirst}
+            title="Omhoog"
+            aria-label={`${room.name} omhoog`}
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button
+            className="rounded-lg p-1.5 text-muted transition hover:text-ink disabled:opacity-30"
+            onClick={() => moveRoom(room, 1)}
+            disabled={isLast}
+            title="Omlaag"
+            aria-label={`${room.name} omlaag`}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
           {!isChild && (
             <button
               className="rounded-lg p-1.5 text-muted transition hover:text-ink"

@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Inbox, LoaderCircle, Search } from "lucide-react";
+import { Inbox, LoaderCircle, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import type { InboxTransaction, Room } from "../types";
 import {
   dismissTransactions,
   fetchInboxPage,
+  listDismissedTransactions,
   listExcludedTransactionIds,
   listRooms,
+  subscribeVerbouwing,
+  undismissTransactions,
 } from "../lib/data";
 import { formatCurrency, formatDate } from "../lib/format";
+import { useDebouncedCallback } from "../lib/useDebouncedCallback";
 import ExpenseDrawer, { type DrawerPrefill } from "../components/ExpenseDrawer";
+
+type View = "open" | "dismissed";
 
 // De inbox: alle uitgaande banktransacties die nog niet beoordeeld zijn.
 // Geladen als één doorlopende lijst met "Meer laden" (cursor over de
@@ -17,6 +23,8 @@ import ExpenseDrawer, { type DrawerPrefill } from "../components/ExpenseDrawer";
 
 export default function Beoordelen() {
   const { toast } = useToast();
+
+  const [view, setView] = useState<View>("open");
 
   const [rows, setRows] = useState<InboxTransaction[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -26,6 +34,11 @@ export default function Beoordelen() {
   const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // "Niet relevant"-lijst
+  const [dismissedRows, setDismissedRows] = useState<InboxTransaction[]>([]);
+  const [dismissedLoading, setDismissedLoading] = useState(false);
 
   // Selectie (met shift-bereik, zelfde interactie als Finance Transactions)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -73,6 +86,39 @@ export default function Beoordelen() {
   useEffect(() => {
     loadFirstPage(debouncedSearch);
   }, [debouncedSearch, loadFirstPage]);
+
+  const loadDismissed = useCallback(async () => {
+    setDismissedLoading(true);
+    try {
+      const list = await listDismissedTransactions();
+      setDismissedRows(list);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Kon lijst niet laden", "error");
+    } finally {
+      setDismissedLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (view === "dismissed") loadDismissed();
+  }, [view, loadDismissed]);
+
+  // Live meebewegen met wijzigingen elders (ander toestell, andere tab): houdt
+  // de excluded-set vers en corrigeert de inbox. Gedebounced tegen event-storms.
+  const refreshActiveView = useCallback(() => {
+    if (view === "open") loadFirstPage(debouncedSearch);
+    else loadDismissed();
+  }, [view, debouncedSearch, loadFirstPage, loadDismissed]);
+  const debouncedRefresh = useDebouncedCallback(refreshActiveView);
+
+  useEffect(() => {
+    const unsubExpenses = subscribeVerbouwing("expenses", debouncedRefresh);
+    const unsubDismissed = subscribeVerbouwing("dismissed_transactions", debouncedRefresh);
+    return () => {
+      unsubExpenses();
+      unsubDismissed();
+    };
+  }, [debouncedRefresh]);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -143,6 +189,74 @@ export default function Beoordelen() {
     }
   }
 
+  /** Zet weggezette transacties terug: optimistisch uit de dismissed-lijst. */
+  async function undismiss(ids: string[]) {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const previous = dismissedRows;
+    setDismissedRows((prev) => prev.filter((t) => !idSet.has(t.id)));
+    ids.forEach((id) => excludedRef.current.delete(id));
+    try {
+      await undismissTransactions(ids);
+      toast(
+        ids.length === 1
+          ? "Transactie teruggezet naar de inbox"
+          : `${ids.length} transacties teruggezet`,
+      );
+    } catch (err) {
+      setDismissedRows(previous);
+      ids.forEach((id) => excludedRef.current.add(id));
+      toast(err instanceof Error ? err.message : "Kon niet terugzetten", "error");
+    }
+  }
+
+  /**
+   * Zet álle transacties die aan de huidige zoekopdracht voldoen op "niet
+   * relevant" — niet alleen de geladen rijen. Pagineert de bron leeg, verzamelt
+   * de ids en dismisst ze in brokken.
+   */
+  async function dismissAllMatching() {
+    setBulkBusy(true);
+    try {
+      const ids: string[] = [];
+      let offset = 0;
+      let more = true;
+      while (more) {
+        const page = await fetchInboxPage({
+          search: debouncedSearch,
+          serverOffset: offset,
+          excluded: excludedRef.current,
+          pageSize: 200,
+        });
+        for (const t of page.rows) ids.push(t.id);
+        offset = page.nextServerOffset;
+        more = page.hasMore;
+      }
+      if (ids.length === 0) {
+        toast("Geen transacties om weg te zetten");
+        return;
+      }
+      if (
+        !confirm(
+          `${ids.length} transactie${ids.length !== 1 ? "s" : ""} die aan de zoekopdracht ` +
+            `voldoen als niet relevant markeren?`,
+        )
+      ) {
+        return;
+      }
+      for (let i = 0; i < ids.length; i += 200) {
+        await dismissTransactions(ids.slice(i, i + 200));
+      }
+      ids.forEach((id) => excludedRef.current.add(id));
+      toast(`${ids.length} transacties gemarkeerd als niet relevant`);
+      await loadFirstPage(debouncedSearch);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Kon niet opslaan", "error");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   function openDrawer(t: InboxTransaction) {
     setDrawerPrefill({
       transaction_id: t.id,
@@ -177,6 +291,69 @@ export default function Beoordelen() {
         </p>
       </div>
 
+      {/* Openstaand ↔ Niet relevant */}
+      <div
+        className="mb-4 inline-flex rounded-lg border p-0.5 text-sm"
+        style={{ borderColor: "var(--border-strong)" }}
+      >
+        {(["open", "dismissed"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className="rounded-md px-3 py-1.5 font-medium transition"
+            style={
+              view === v
+                ? { background: "var(--accent)", color: "var(--surface)" }
+                : { color: "var(--muted)" }
+            }
+          >
+            {v === "open" ? "Openstaand" : "Niet relevant"}
+          </button>
+        ))}
+      </div>
+
+      {view === "dismissed" ? (
+        <div className="card !p-0 overflow-hidden">
+          {dismissedLoading ? (
+            <div className="flex h-48 items-center justify-center gap-2 text-sm text-muted">
+              <LoaderCircle className="h-4 w-4 animate-spin" /> Laden…
+            </div>
+          ) : dismissedRows.length === 0 ? (
+            <div className="py-12 text-center">
+              <Inbox className="mx-auto mb-3 h-10 w-10 text-faint" />
+              <p className="text-sm text-muted">
+                Nog niets als niet relevant gemarkeerd.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+              {dismissedRows.map((t) => (
+                <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <span className="w-20 shrink-0 text-xs text-muted">{formatDate(t.date)}</span>
+                  <div className="min-w-0 flex-1 basis-48">
+                    <p className="truncate text-sm font-medium">
+                      {t.counterparty_name || t.description}
+                    </p>
+                    {t.counterparty_name && (
+                      <p className="truncate text-xs text-muted">{t.description}</p>
+                    )}
+                  </div>
+                  <span className="font-mono text-sm text-danger">{formatCurrency(t.amount)}</span>
+                  <button
+                    className="btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                    onClick={() => undismiss([t.id])}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Terugzetten
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       {/* Zoekbalk */}
       <div className="relative mb-4">
         <Search className="absolute left-3 top-3.5 h-4 w-4 text-faint" />
@@ -208,20 +385,30 @@ export default function Beoordelen() {
           </>
         )}
         {rows.length > 0 && selectedIds.size === 0 && (
-          <button
-            className="btn-ghost px-3 py-1.5 text-sm"
-            onClick={() => {
-              if (
-                confirm(
-                  `Alle ${rows.length} getoonde transacties als niet relevant markeren?`,
-                )
-              ) {
-                dismiss(rows.map((t) => t.id));
-              }
-            }}
-          >
-            Alles op deze pagina niet relevant
-          </button>
+          <>
+            <button
+              className="btn-ghost px-3 py-1.5 text-sm"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Alle ${rows.length} getoonde transacties als niet relevant markeren?`,
+                  )
+                ) {
+                  dismiss(rows.map((t) => t.id));
+                }
+              }}
+            >
+              Alles op deze pagina niet relevant
+            </button>
+            <button
+              className="btn-ghost px-3 py-1.5 text-sm"
+              onClick={dismissAllMatching}
+              disabled={bulkBusy}
+            >
+              {bulkBusy && <LoaderCircle className="h-4 w-4 animate-spin" />}
+              {debouncedSearch ? "Alles wat matcht niet relevant" : "Alles niet relevant"}
+            </button>
+          </>
         )}
       </div>
 
@@ -258,6 +445,7 @@ export default function Beoordelen() {
                 checked={allSelected}
                 onChange={toggleSelectAll}
                 className="rounded border-gray-300"
+                aria-label="Alles selecteren"
               />
               <span>
                 {rows.length} transactie{rows.length !== 1 ? "s" : ""}
@@ -287,6 +475,7 @@ export default function Beoordelen() {
                       )
                     }
                     className="rounded border-gray-300"
+                    aria-label={`Selecteer ${t.counterparty_name || t.description}`}
                   />
                   <span className="w-20 shrink-0 text-xs text-muted">{formatDate(t.date)}</span>
                   <div className="min-w-0 flex-1 basis-48">
@@ -328,6 +517,8 @@ export default function Beoordelen() {
           </>
         )}
       </div>
+        </>
+      )}
 
       <ExpenseDrawer
         open={drawerPrefill !== null}

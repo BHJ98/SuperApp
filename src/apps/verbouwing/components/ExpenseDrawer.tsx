@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, LoaderCircle, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import type { EditablePart, Expense, ExpenseWithDetails, Receipt, Room } from "../types";
 import {
@@ -64,61 +65,120 @@ export default function ExpenseDrawer({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Na een geslaagde create maar met mislukte bon-uploads: de expense bestaat,
+  // maar de drawer blijft open zodat de gebruiker het opnieuw kan proberen.
+  const [savedExpenseId, setSavedExpenseId] = useState<string | null>(null);
+  const [uploadFailed, setUploadFailed] = useState<File[]>([]);
+  const [retrying, setRetrying] = useState(false);
+  // Snapshot van de begintoestand voor de "niet-opgeslagen wijzigingen"-check.
+  const snapshotRef = useRef<string>("");
+
+  const serialize = useCallback(
+    (v: {
+      date: string;
+      description: string;
+      supplier: string;
+      totalStr: string;
+      mode: "single" | "split";
+      singleRoomId: string;
+      parts: EditablePart[];
+    }) =>
+      JSON.stringify({
+        date: v.date,
+        description: v.description.trim(),
+        supplier: v.supplier.trim(),
+        totalStr: v.totalStr,
+        mode: v.mode,
+        singleRoomId: v.singleRoomId,
+        parts: v.parts.map((p) => ({ room_id: p.room_id, amount: p.amount, note: p.note })),
+      }),
+    [],
+  );
 
   // Reset alle velden bij openen (op basis van expense / prefill / handmatig).
   useEffect(() => {
     if (!open) return;
+    const init = {
+      date: todayISO(),
+      description: "",
+      supplier: "",
+      totalStr: "",
+      mode: "single" as "single" | "split",
+      singleRoomId: "",
+      parts: [] as EditablePart[],
+      receipts: [] as Receipt[],
+    };
     if (expense) {
-      setDate(expense.date);
-      setDescription(expense.description);
-      setSupplier(expense.supplier ?? "");
-      setTotalStr(String(expense.total_amount));
-      setReceipts(expense.receipts ?? []);
+      init.date = expense.date;
+      init.description = expense.description;
+      init.supplier = expense.supplier ?? "";
+      init.totalStr = String(expense.total_amount);
+      init.receipts = expense.receipts ?? [];
       const existing = expense.expense_parts ?? [];
       if (existing.length > 1) {
-        setMode("split");
-        setSingleRoomId("");
-        setParts(
-          existing.map((p) => ({
-            key: p.id,
-            room_id: p.room_id,
-            amount: String(p.amount),
-            note: p.note ?? "",
-          })),
-        );
+        init.mode = "split";
+        init.parts = existing.map((p) => ({
+          key: p.id,
+          room_id: p.room_id,
+          amount: String(p.amount),
+          note: p.note ?? "",
+        }));
       } else {
-        setMode("single");
-        setSingleRoomId(existing[0]?.room_id ?? "");
-        setParts([]);
+        init.singleRoomId = existing[0]?.room_id ?? "";
       }
     } else if (prefill) {
-      setDate(prefill.date);
-      setDescription(prefill.description);
-      setSupplier(prefill.supplier ?? "");
-      setTotalStr(String(prefill.total));
-      setMode("single");
-      setSingleRoomId("");
-      setParts([]);
-      setReceipts([]);
-    } else {
-      setDate(todayISO());
-      setDescription("");
-      setSupplier("");
-      setTotalStr("");
-      setMode("single");
-      setSingleRoomId("");
-      setParts([]);
-      setReceipts([]);
+      init.date = prefill.date;
+      init.description = prefill.description;
+      init.supplier = prefill.supplier ?? "";
+      init.totalStr = String(prefill.total);
     }
+    setDate(init.date);
+    setDescription(init.description);
+    setSupplier(init.supplier);
+    setTotalStr(init.totalStr);
+    setMode(init.mode);
+    setSingleRoomId(init.singleRoomId);
+    setParts(init.parts);
+    setReceipts(init.receipts);
     setPendingFiles([]);
     setSaving(false);
     setDeleting(false);
-  }, [open, expense, prefill]);
+    setSavedExpenseId(null);
+    setUploadFailed([]);
+    setRetrying(false);
+    snapshotRef.current = serialize(init);
+  }, [open, expense, prefill, serialize]);
 
   const total = useMemo(() => {
     const n = parseAmount(totalStr);
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [totalStr]);
+
+  const hasUnsavedChanges =
+    pendingFiles.length > 0 ||
+    serialize({ date, description, supplier, totalStr, mode, singleRoomId, parts }) !==
+      snapshotRef.current;
+
+  // Sluiten met bevestiging als er niet-opgeslagen wijzigingen zijn. Zodra de
+  // uitgave is aangemaakt (savedExpenseId) is het formulier al bewaard; de
+  // waarschuwing over niet-geüploade bonnen staat dan apart in beeld.
+  const requestClose = useCallback(() => {
+    if (savedExpenseId) {
+      onClose();
+      return;
+    }
+    if (hasUnsavedChanges && !confirm("Niet-opgeslagen wijzigingen verliezen?")) return;
+    onClose();
+  }, [savedExpenseId, hasUnsavedChanges, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") requestClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, requestClose]);
 
   function switchToSplit() {
     if (parts.length === 0) {
@@ -129,8 +189,45 @@ export default function ExpenseDrawer({
   }
 
   function switchToSingle() {
+    // Bij >1 regel zou terugschakelen alle extra regels weggooien — bevestig eerst.
+    if (
+      parts.length > 1 &&
+      !confirm("Terug naar één ruimte? De extra split-regels worden verwijderd.")
+    ) {
+      return;
+    }
     setSingleRoomId(parts[0]?.room_id ?? singleRoomId);
     setMode("single");
+  }
+
+  /** Uploadt bestanden naar een bestaande expense; geeft de mislukte terug. */
+  async function uploadFiles(expenseId: string, files: File[]): Promise<File[]> {
+    const failed: File[] = [];
+    for (const file of files) {
+      try {
+        await uploadReceipt(expenseId, file);
+      } catch {
+        failed.push(file);
+      }
+    }
+    return failed;
+  }
+
+  async function retryUploads() {
+    if (!savedExpenseId) return;
+    setRetrying(true);
+    try {
+      const stillFailed = await uploadFiles(savedExpenseId, uploadFailed);
+      if (stillFailed.length === 0) {
+        toast("Bonfoto's geüpload");
+        onClose();
+      } else {
+        setUploadFailed(stillFailed);
+        toast(`${stillFailed.length} bonfoto('s) nog steeds niet geüpload`, "error");
+      }
+    } finally {
+      setRetrying(false);
+    }
   }
 
   /** Eerste bonfoto als base64 voor de AI-uitlezing (lokaal of uit storage). */
@@ -150,6 +247,10 @@ export default function ExpenseDrawer({
   }
 
   async function handleSave() {
+    if (roomOptions.length === 0) {
+      toast("Maak eerst een ruimte aan onder Ruimtes", "error");
+      return;
+    }
     if (total === null) {
       toast("Vul een geldig totaalbedrag in", "error");
       return;
@@ -215,24 +316,19 @@ export default function ExpenseDrawer({
         saved = await createExpense({ ...fields, transaction_id: transactionId }, partsPayload);
       }
       // Nieuwe uitgave: nu pas de lokaal vastgehouden bonfoto's uploaden.
-      let uploadFailures = 0;
-      for (const file of pendingFiles) {
-        try {
-          await uploadReceipt(saved.id, file);
-        } catch {
-          uploadFailures++;
-        }
-      }
-      if (uploadFailures > 0) {
-        toast(
-          `Uitgave opgeslagen, maar ${uploadFailures} bonfoto('s) konden niet geüpload worden`,
-          "error",
-        );
+      const failed = pendingFiles.length > 0 ? await uploadFiles(saved.id, pendingFiles) : [];
+      onSaved(saved);
+      if (failed.length > 0) {
+        // Uitgave staat er; laat de drawer open zodat de mislukte uploads
+        // opnieuw geprobeerd kunnen worden (zonder ze opnieuw te hoeven kiezen).
+        setSavedExpenseId(saved.id);
+        setUploadFailed(failed);
+        setPendingFiles([]);
+        toast(`Uitgave opgeslagen, ${failed.length} bonfoto('s) niet geüpload`, "error");
       } else {
         toast("Uitgave opgeslagen");
+        onClose();
       }
-      onSaved(saved);
-      onClose();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Opslaan mislukt", "error");
     } finally {
@@ -264,7 +360,7 @@ export default function ExpenseDrawer({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-      onClick={onClose}
+      onClick={requestClose}
     >
       <div
         className="card max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-b-none sm:rounded-b-xl"
@@ -282,7 +378,7 @@ export default function ExpenseDrawer({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="rounded-lg p-1.5 text-muted transition hover:text-ink"
             aria-label="Sluiten"
           >
@@ -342,72 +438,113 @@ export default function ExpenseDrawer({
           </div>
 
           {/* Ruimte-toewijzing: één ruimte of splitsen */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="label !mb-0">Ruimte</span>
-              <div
-                className="flex rounded-lg border p-0.5 text-xs"
-                style={{ borderColor: "var(--border-strong)" }}
+          {roomOptions.length === 0 ? (
+            <div
+              className="rounded-xl border p-3 text-sm"
+              style={{ borderColor: "var(--border)", background: "var(--subtle)" }}
+            >
+              <p className="text-muted">
+                Er zijn nog geen ruimtes. Maak eerst een ruimte aan om deze uitgave aan toe te
+                wijzen.
+              </p>
+              <Link
+                to="/verbouwing/ruimtes"
+                onClick={requestClose}
+                className="mt-2 inline-block font-medium text-info"
               >
-                <button
-                  type="button"
-                  onClick={switchToSingle}
-                  className="rounded-md px-2.5 py-1 font-medium transition"
-                  style={
-                    mode === "single"
-                      ? { background: "var(--accent)", color: "var(--surface)" }
-                      : { color: "var(--muted)" }
-                  }
-                >
-                  Eén ruimte
-                </button>
-                <button
-                  type="button"
-                  onClick={switchToSplit}
-                  className="rounded-md px-2.5 py-1 font-medium transition"
-                  style={
-                    mode === "split"
-                      ? { background: "var(--accent)", color: "var(--surface)" }
-                      : { color: "var(--muted)" }
-                  }
-                >
-                  Splitsen
-                </button>
-              </div>
+                Naar Ruimtes →
+              </Link>
             </div>
-            {mode === "single" ? (
-              <select
-                className="input"
-                value={singleRoomId}
-                onChange={(e) => setSingleRoomId(e.target.value)}
-              >
-                <option value="">Kies ruimte…</option>
-                {roomOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {"    ".repeat(o.depth)}
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <SplitEditor
-                total={total}
-                parts={parts}
-                onPartsChange={setParts}
-                roomOptions={roomOptions}
-                getReceiptImage={getReceiptImage}
-              />
-            )}
-          </div>
+          ) : (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="label !mb-0">Ruimte</span>
+                <div
+                  className="flex rounded-lg border p-0.5 text-xs"
+                  style={{ borderColor: "var(--border-strong)" }}
+                >
+                  <button
+                    type="button"
+                    onClick={switchToSingle}
+                    className="rounded-md px-2.5 py-1 font-medium transition"
+                    style={
+                      mode === "single"
+                        ? { background: "var(--accent)", color: "var(--surface)" }
+                        : { color: "var(--muted)" }
+                    }
+                  >
+                    Eén ruimte
+                  </button>
+                  <button
+                    type="button"
+                    onClick={switchToSplit}
+                    className="rounded-md px-2.5 py-1 font-medium transition"
+                    style={
+                      mode === "split"
+                        ? { background: "var(--accent)", color: "var(--surface)" }
+                        : { color: "var(--muted)" }
+                    }
+                  >
+                    Splitsen
+                  </button>
+                </div>
+              </div>
+              {mode === "single" ? (
+                <select
+                  className="input"
+                  value={singleRoomId}
+                  onChange={(e) => setSingleRoomId(e.target.value)}
+                >
+                  <option value="">Kies ruimte…</option>
+                  {roomOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {"    ".repeat(o.depth)}
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <SplitEditor
+                  total={total}
+                  parts={parts}
+                  onPartsChange={setParts}
+                  roomOptions={roomOptions}
+                  getReceiptImage={getReceiptImage}
+                />
+              )}
+            </div>
+          )}
 
           {/* Bonnen */}
           <ReceiptGallery
-            expenseId={expense?.id ?? null}
+            expenseId={expense?.id ?? savedExpenseId}
             receipts={receipts}
             onReceiptsChange={setReceipts}
             pendingFiles={pendingFiles}
             onPendingFilesChange={setPendingFiles}
           />
+
+          {/* Mislukte bon-uploads: opnieuw proberen zonder opnieuw te kiezen */}
+          {uploadFailed.length > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
+              style={{ borderColor: "rgba(239,68,68,0.5)", background: "var(--subtle)" }}
+            >
+              <AlertTriangle className="h-4 w-4 text-danger" />
+              <span className="flex-1">
+                {uploadFailed.length} bonfoto('s) zijn niet geüpload.
+              </span>
+              <button
+                type="button"
+                className="btn-primary px-3 py-1.5 text-sm"
+                onClick={retryUploads}
+                disabled={retrying}
+              >
+                {retrying && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                Opnieuw proberen
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Acties */}
@@ -430,7 +567,7 @@ export default function ExpenseDrawer({
             <span />
           )}
           <div className="flex gap-2">
-            <button type="button" className="btn-ghost" onClick={onClose} disabled={saving}>
+            <button type="button" className="btn-ghost" onClick={requestClose} disabled={saving}>
               Annuleren
             </button>
             <button
