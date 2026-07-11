@@ -50,11 +50,6 @@ export type ExpenseWithDetails = Expense & {
   receipts: Receipt[];
 };
 
-export type VerbouwingSettings = {
-  id: number;
-  total_budget: number | null;
-};
-
 /** Banktransactie zoals de beoordelen-inbox hem toont (public.transactions). */
 export type InboxTransaction = {
   id: string;

@@ -7,7 +7,6 @@ import type {
   Receipt,
   Room,
   RoomOption,
-  VerbouwingSettings,
 } from "../types";
 import { compressImage } from "./image";
 
@@ -78,16 +77,22 @@ export async function deleteRoom(id: string): Promise<void> {
   }
 }
 
-/** Platte lijst voor selects: ruimtes met hun subdelen ingesprongen eronder. */
-export function flattenRooms(rooms: Room[]): RoomOption[] {
-  const byParent = new Map<string, Room[]>();
+/** Groepeert ruimtes per parent_id (subdelen per top-level ruimte). */
+export function groupChildrenByParent(rooms: Room[]): Map<string, Room[]> {
+  const map = new Map<string, Room[]>();
   for (const r of rooms) {
     if (r.parent_id) {
-      const list = byParent.get(r.parent_id) ?? [];
+      const list = map.get(r.parent_id) ?? [];
       list.push(r);
-      byParent.set(r.parent_id, list);
+      map.set(r.parent_id, list);
     }
   }
+  return map;
+}
+
+/** Platte lijst voor selects: ruimtes met hun subdelen ingesprongen eronder. */
+export function flattenRooms(rooms: Room[]): RoomOption[] {
+  const byParent = groupChildrenByParent(rooms);
   const out: RoomOption[] = [];
   for (const top of rooms.filter((r) => !r.parent_id)) {
     out.push({ id: top.id, name: top.name, depth: 0, fullName: top.name });
@@ -117,25 +122,6 @@ export function roomWithDescendantIds(rooms: Room[], roomId: string): Set<string
     }
   }
   return ids;
-}
-
-// ---- Instellingen (singleton, id=1) ------------------------------------------
-
-export async function getSettings(): Promise<VerbouwingSettings> {
-  const { data, error } = await vdb()
-    .from("settings")
-    .select("*")
-    .eq("id", 1)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as VerbouwingSettings | null) ?? { id: 1, total_budget: null };
-}
-
-export async function updateTotalBudget(totalBudget: number | null): Promise<void> {
-  const { error } = await vdb()
-    .from("settings")
-    .upsert({ id: 1, total_budget: totalBudget });
-  if (error) throw new Error(error.message);
 }
 
 // ---- Uitgaven + parts ---------------------------------------------------------

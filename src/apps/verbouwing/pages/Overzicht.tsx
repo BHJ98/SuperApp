@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Inbox, LoaderCircle } from "lucide-react";
-import type { ExpenseWithDetails, Room, VerbouwingSettings } from "../types";
+import type { ExpenseWithDetails, Room } from "../types";
 import {
   fetchInboxCount,
-  getSettings,
+  groupChildrenByParent,
   listExpenses,
   listRooms,
   subscribeVerbouwing,
   type VerbouwingTable,
 } from "../lib/data";
+import { buildRoomBudgetTree, effectiveRoomBudget, totalEffectiveBudget } from "../lib/budget";
 import { formatCurrency, formatMonth } from "../lib/format";
 
 // Eigen financiële rapportage van de verbouwing: besteed vs. budget (totaal,
@@ -52,7 +53,6 @@ function BudgetBar({ spent, budget }: { spent: number; budget: number }) {
 export default function Overzicht() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
-  const [settings, setSettings] = useState<VerbouwingSettings | null>(null);
   const [inboxCount, setInboxCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,15 +60,13 @@ export default function Overzicht() {
 
   const load = useCallback(async () => {
     try {
-      const [r, e, s, c] = await Promise.all([
+      const [r, e, c] = await Promise.all([
         listRooms(),
         listExpenses(),
-        getSettings(),
         fetchInboxCount(),
       ]);
       setRooms(r);
       setExpenses(e);
-      setSettings(s);
       setInboxCount(c);
       setError(null);
     } catch (err) {
@@ -101,24 +99,19 @@ export default function Overzicht() {
 
   // Per top-level ruimte: eigen + subdeel-besteding, met de subdeel-regels erbij.
   const roomBreakdown = useMemo(() => {
-    const childrenByParent = new Map<string, Room[]>();
-    for (const r of rooms) {
-      if (r.parent_id) {
-        const list = childrenByParent.get(r.parent_id) ?? [];
-        list.push(r);
-        childrenByParent.set(r.parent_id, list);
-      }
-    }
+    const childrenByParent = groupChildrenByParent(rooms);
     return rooms
       .filter((r) => !r.parent_id)
       .map((room) => {
-        const children = (childrenByParent.get(room.id) ?? []).map((child) => ({
+        const childRooms = childrenByParent.get(room.id) ?? [];
+        const children = childRooms.map((child) => ({
           room: child,
           spent: spentByRoom.get(child.id) ?? 0,
         }));
         const ownSpent = spentByRoom.get(room.id) ?? 0;
         const spent = ownSpent + children.reduce((s, c) => s + c.spent, 0);
-        return { room, spent, ownSpent, children };
+        const effectiveBudget = effectiveRoomBudget(room, childRooms);
+        return { room, spent, ownSpent, children, effectiveBudget };
       });
   }, [rooms, spentByRoom]);
 
@@ -163,7 +156,10 @@ export default function Overzicht() {
   }, [expenses]);
   const maxMonth = Math.max(1, ...perMonth.map(([, v]) => v));
 
-  const totalBudget = settings?.total_budget ?? null;
+  const totalBudget = useMemo(
+    () => totalEffectiveBudget(buildRoomBudgetTree(rooms)),
+    [rooms],
+  );
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -247,7 +243,7 @@ export default function Overzicht() {
             </p>
           ) : (
             <div className="space-y-1">
-              {roomBreakdown.map(({ room, spent, ownSpent, children }) => {
+              {roomBreakdown.map(({ room, spent, ownSpent, children, effectiveBudget }) => {
                 const isOpen = expanded.has(room.id);
                 const hasChildren = children.length > 0;
                 return (
@@ -270,20 +266,20 @@ export default function Overzicht() {
                           <span className="truncate text-sm font-medium">{room.name}</span>
                           <span
                             className={`whitespace-nowrap font-mono text-sm ${
-                              room.budget !== null && spent > room.budget
+                              effectiveBudget !== null && spent > effectiveBudget
                                 ? "text-danger"
                                 : ""
                             }`}
                           >
                             {formatCurrency(spent)}
-                            {room.budget !== null && (
-                              <span className="text-muted"> / {formatCurrency(room.budget)}</span>
+                            {effectiveBudget !== null && (
+                              <span className="text-muted"> / {formatCurrency(effectiveBudget)}</span>
                             )}
                           </span>
                         </div>
-                        {room.budget !== null && room.budget > 0 && (
+                        {effectiveBudget !== null && effectiveBudget > 0 && (
                           <div className="mt-1">
-                            <BudgetBar spent={spent} budget={room.budget} />
+                            <BudgetBar spent={spent} budget={effectiveBudget} />
                           </div>
                         )}
                       </div>

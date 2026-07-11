@@ -1,31 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, LoaderCircle, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import type { Room, VerbouwingSettings } from "../types";
+import type { Room } from "../types";
 import {
   createRoom,
   deleteRoom,
-  getSettings,
+  groupChildrenByParent,
   listRooms,
   subscribeVerbouwing,
   updateRoom,
-  updateTotalBudget,
 } from "../lib/data";
+import { buildRoomBudgetTree, totalEffectiveBudget } from "../lib/budget";
 import { formatCurrency, parseAmount } from "../lib/format";
 
-// Beheer van ruimtes en subdelen (CRUD, zoals Finance-categorieën) plus
-// budgetten: totaalbudget (settings-singleton) en budget per ruimte/subdeel.
+// Beheer van ruimtes en subdelen (CRUD, zoals Finance-categorieën). Het
+// totaalbudget en het budget van een ruimte-met-subdelen worden automatisch
+// berekend (som van subdelen resp. som van alle ruimtes) — zie lib/budget.ts.
+// Alleen een ruimte zonder subdelen (of een subdeel zelf) heeft nog een
+// handmatig budgetveld.
 
 export default function Ruimtes() {
   const { toast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [settings, setSettings] = useState<VerbouwingSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Totaalbudget-invoer
-  const [totalBudgetStr, setTotalBudgetStr] = useState("");
-  const [savingBudget, setSavingBudget] = useState(false);
 
   // Inline bewerken van één ruimte
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -39,9 +37,8 @@ export default function Ruimtes() {
 
   const load = useCallback(async () => {
     try {
-      const [r, s] = await Promise.all([listRooms(), getSettings()]);
+      const r = await listRooms();
       setRooms(r);
-      setSettings(s);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kon ruimtes niet laden");
@@ -56,42 +53,14 @@ export default function Ruimtes() {
     return () => unsub();
   }, [load]);
 
-  useEffect(() => {
-    if (settings) {
-      setTotalBudgetStr(settings.total_budget !== null ? String(settings.total_budget) : "");
-    }
-  }, [settings]);
-
   const topRooms = useMemo(() => rooms.filter((r) => !r.parent_id), [rooms]);
-  const childrenByParent = useMemo(() => {
-    const map = new Map<string, Room[]>();
-    for (const r of rooms) {
-      if (r.parent_id) {
-        const list = map.get(r.parent_id) ?? [];
-        list.push(r);
-        map.set(r.parent_id, list);
-      }
-    }
-    return map;
-  }, [rooms]);
-
-  async function saveTotalBudget() {
-    const value = totalBudgetStr.trim() === "" ? null : parseAmount(totalBudgetStr);
-    if (value !== null && (!Number.isFinite(value) || value < 0)) {
-      toast("Vul een geldig totaalbudget in", "error");
-      return;
-    }
-    setSavingBudget(true);
-    try {
-      await updateTotalBudget(value);
-      setSettings({ id: 1, total_budget: value });
-      toast("Totaalbudget opgeslagen");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Opslaan mislukt", "error");
-    } finally {
-      setSavingBudget(false);
-    }
-  }
+  const childrenByParent = useMemo(() => groupChildrenByParent(rooms), [rooms]);
+  const roomBudgetTree = useMemo(() => buildRoomBudgetTree(rooms), [rooms]);
+  const grandTotal = useMemo(() => totalEffectiveBudget(roomBudgetTree), [roomBudgetTree]);
+  const effectiveBudgetByRoomId = useMemo(
+    () => new Map(roomBudgetTree.map((n) => [n.room.id, n.effectiveBudget])),
+    [roomBudgetTree],
+  );
 
   function startEdit(room: Room) {
     setEditingId(room.id);
@@ -106,15 +75,19 @@ export default function Ruimtes() {
       toast("Vul een naam in", "error");
       return;
     }
-    const budget = editBudget.trim() === "" ? null : parseAmount(editBudget);
-    if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
-      toast("Vul een geldig budget in", "error");
-      return;
+    const hasChildren = (childrenByParent.get(editingId)?.length ?? 0) > 0;
+    let budget: number | null = null;
+    if (!hasChildren) {
+      budget = editBudget.trim() === "" ? null : parseAmount(editBudget);
+      if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
+        toast("Vul een geldig budget in", "error");
+        return;
+      }
     }
     try {
-      await updateRoom(editingId, { name, budget });
+      await updateRoom(editingId, hasChildren ? { name } : { name, budget });
       setRooms((prev) =>
-        prev.map((r) => (r.id === editingId ? { ...r, name, budget } : r)),
+        prev.map((r) => (r.id === editingId ? { ...r, name, ...(hasChildren ? {} : { budget }) } : r)),
       );
       setEditingId(null);
       toast("Ruimte opgeslagen");
@@ -214,6 +187,7 @@ export default function Ruimtes() {
   }
 
   function renderRoomRow(room: Room, isChild: boolean) {
+    const hasChildren = !isChild && (childrenByParent.get(room.id)?.length ?? 0) > 0;
     if (editingId === room.id) {
       return (
         <div className={`flex flex-wrap items-center gap-2 py-2 ${isChild ? "pl-8" : ""}`}>
@@ -227,17 +201,23 @@ export default function Ruimtes() {
               if (e.key === "Escape") setEditingId(null);
             }}
           />
-          <input
-            className="input w-28 !py-1.5 text-right font-mono text-sm"
-            inputMode="decimal"
-            placeholder="Budget"
-            value={editBudget}
-            onChange={(e) => setEditBudget(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveEdit();
-              if (e.key === "Escape") setEditingId(null);
-            }}
-          />
+          {hasChildren ? (
+            <span className="w-28 text-right font-mono text-xs text-muted">
+              {formatCurrency(effectiveBudgetByRoomId.get(room.id) ?? 0)}
+            </span>
+          ) : (
+            <input
+              className="input w-28 !py-1.5 text-right font-mono text-sm"
+              inputMode="decimal"
+              placeholder="Budget"
+              value={editBudget}
+              onChange={(e) => setEditBudget(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveEdit();
+                if (e.key === "Escape") setEditingId(null);
+              }}
+            />
+          )}
           <button className="btn-primary px-3 py-1.5 text-sm" onClick={saveEdit}>
             <Check className="h-4 w-4" />
           </button>
@@ -247,14 +227,20 @@ export default function Ruimtes() {
         </div>
       );
     }
+    const effectiveBudget = hasChildren ? effectiveBudgetByRoomId.get(room.id) ?? null : room.budget;
     return (
       <div className={`group flex items-center gap-2 py-2 ${isChild ? "pl-8" : ""}`}>
         <span className={`min-w-0 flex-1 truncate text-sm ${isChild ? "" : "font-medium"}`}>
           {room.name}
         </span>
-        <span className="font-mono text-xs text-muted">
-          {room.budget !== null ? formatCurrency(room.budget) : "—"}
-        </span>
+        <div className="flex flex-col items-end">
+          <span className="font-mono text-xs text-muted">
+            {effectiveBudget !== null ? formatCurrency(effectiveBudget) : "—"}
+          </span>
+          {hasChildren && (
+            <span className="text-[11px] text-muted">Automatisch: som van subdelen</span>
+          )}
+        </div>
         <div className="flex gap-1">
           {!isChild && (
             <button
@@ -315,24 +301,11 @@ export default function Ruimtes() {
       {/* Totaalbudget */}
       <div className="card">
         <label className="label">Totaalbudget verbouwing</label>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="input w-40 text-right font-mono"
-            inputMode="decimal"
-            placeholder="Geen budget"
-            value={totalBudgetStr}
-            onChange={(e) => setTotalBudgetStr(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveTotalBudget();
-            }}
-          />
-          <button className="btn-primary px-4 py-2 text-sm" onClick={saveTotalBudget} disabled={savingBudget}>
-            {savingBudget && <LoaderCircle className="h-4 w-4 animate-spin" />}
-            Opslaan
-          </button>
-        </div>
+        <p className="mt-1 text-2xl font-bold font-mono">
+          {grandTotal !== null ? formatCurrency(grandTotal) : "—"}
+        </p>
         <p className="mt-2 text-xs text-muted">
-          Leeg laten = geen totaalbudget. Budgetten per ruimte/subdeel stel je hieronder in.
+          Automatisch berekend: som van de budgetten van alle ruimtes.
         </p>
       </div>
 
