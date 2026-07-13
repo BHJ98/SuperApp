@@ -124,6 +124,13 @@ function check(res: { data: unknown; error: { message: string } | null }): any {
   return res.data;
 }
 
+/** Herkent een "functie bestaat niet"-fout van PostgREST (RPC niet gedeployed). */
+function isMissingFunction(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST202") return true;
+  return /could not find the function|does not exist/i.test(error.message ?? "");
+}
+
 export class SupabaseRepository implements Repository {
   // ---- profiles ----
   async listProfiles(): Promise<Profile[]> {
@@ -356,14 +363,51 @@ export class SupabaseRepository implements Repository {
     // set_number is computed atomically server-side (workout.add_set, see
     // migration/workout_atomic_add_set.sql) rather than via a client-side
     // count-then-insert, which raced when multiple sets were added rapidly.
+    const e1rm = set.isWarmup ? 0 : estimateE1rm(set.weightKg, set.reps);
+    const res = await db().rpc("add_set", {
+      p_workout_exercise_id: workoutExerciseId,
+      p_weight_kg: set.weightKg,
+      p_reps: set.reps,
+      p_is_warmup: set.isWarmup,
+      p_e1rm: e1rm,
+    });
+    if (!res.error) return toSet(res.data as Row);
+    // Staat de add_set-RPC nog niet in de database (migratie niet gedraaid),
+    // val dan terug op een client-side insert zodat sets tóch opgeslagen worden.
+    // Mist de atomaire race-bescherming — daarom blijft de migratie aanbevolen.
+    if (isMissingFunction(res.error)) {
+      return this.addSetFallback(workoutExerciseId, set, e1rm);
+    }
+    throw new Error(res.error.message);
+  }
+
+  private async addSetFallback(
+    workoutExerciseId: string,
+    set: NewSet,
+    e1rm: number,
+  ): Promise<WorkoutSet> {
+    const existing = check(
+      await db()
+        .from("sets")
+        .select("set_number")
+        .eq("workout_exercise_id", workoutExerciseId)
+        .order("set_number", { ascending: false })
+        .limit(1),
+    ) as Row[];
+    const nextNumber = (existing.length ? (existing[0].set_number as number) : 0) + 1;
     const row = check(
-      await db().rpc("add_set", {
-        p_workout_exercise_id: workoutExerciseId,
-        p_weight_kg: set.weightKg,
-        p_reps: set.reps,
-        p_is_warmup: set.isWarmup,
-        p_e1rm: set.isWarmup ? 0 : estimateE1rm(set.weightKg, set.reps),
-      }),
+      await db()
+        .from("sets")
+        .insert({
+          workout_exercise_id: workoutExerciseId,
+          set_number: nextNumber,
+          weight_kg: set.weightKg,
+          reps: set.reps,
+          is_warmup: set.isWarmup,
+          e1rm,
+        })
+        .select("*")
+        .single(),
     );
     return toSet(row as Row);
   }

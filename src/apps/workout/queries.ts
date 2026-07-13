@@ -22,7 +22,10 @@ function useMutationErrorHandler() {
   const { toast } = useToast();
   return (message: string) => (err: unknown) => {
     console.error(message, err);
-    toast(message, "error");
+    // Toon de echte foutmelding erbij i.p.v. altijd "controleer je verbinding",
+    // zodat een server-/schemafout niet als een verbindingsprobleem oogt.
+    const detail = err instanceof Error ? err.message.trim() : "";
+    toast(detail && detail !== message ? `${message} (${detail})` : message, "error");
   };
 }
 
