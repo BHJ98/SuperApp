@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, LoaderCircle, X } from "lucide-react";
+import { Camera, Image as ImageIcon, LoaderCircle, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import type { Receipt } from "../types";
 import { deleteReceipt, getReceiptSignedUrl, uploadReceipt } from "../lib/data";
@@ -22,7 +22,8 @@ export default function ReceiptGallery({
   onPendingFilesChange,
 }: Props) {
   const { toast } = useToast();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Signed thumbnail-urls (1 uur geldig), gecached per storage_path.
@@ -137,26 +138,50 @@ export default function ReceiptGallery({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="label !mb-0">Bonnen</span>
-        <button
-          type="button"
-          className="btn-ghost px-3 py-1.5 text-sm"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? (
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-          ) : (
-            <Camera className="h-4 w-4" />
-          )}
-          Bonfoto toevoegen
-        </button>
+        <div className="flex gap-1.5">
+          {/* Twee inputs: mét capture = direct de camera (iOS/Android), zónder
+              capture = galerij/bestandskiezer. Eén input met capture zou de
+              galerij-optie op mobiel overslaan. */}
+          <button
+            type="button"
+            className="btn-ghost px-3 py-1.5 text-sm"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Camera className="h-4 w-4" />
+            )}
+            Foto maken
+          </button>
+          <button
+            type="button"
+            className="btn-ghost px-3 py-1.5 text-sm"
+            onClick={() => galleryInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <ImageIcon className="h-4 w-4" />
+            Uit galerij
+          </button>
+        </div>
         <input
-          ref={inputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
           multiple
           className="hidden"
           onChange={(e) => {
