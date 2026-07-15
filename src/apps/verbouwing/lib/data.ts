@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { apiUrl } from "@/lib/apiBase";
 import type {
   Expense,
   ExpenseWithDetails,
@@ -456,7 +457,7 @@ export async function parseReceipt(
   const { data: sessionData } = await pdb().auth.getSession();
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("Geen actieve sessie — log opnieuw in");
-  const res = await fetch("/api/parse-receipt", {
+  const res = await fetch(apiUrl("/api/parse-receipt"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -59,6 +59,14 @@ sign-in and an allow-listed email.
 | `VITE_GOOGLE_CLIENT_ID` | optional | Google OAuth client ID for Bakjes' Calendar live sync (same ID Supabase Google auth uses) |
 | `ANTHROPIC_API_KEY` | Vercel only (server) | used by `api/extract.ts`; never exposed to the client |
 
+## Android app
+
+A Capacitor shell around the same codebase, with fully native Google
+sign-in (no browser needed). Web assets are bundled in the APK, so the app
+only changes when a new APK is installed; data stays in sync via Supabase.
+Build on demand via the **Android APK** GitHub Actions workflow — see
+[`docs/ANDROID.md`](docs/ANDROID.md) for the one-time setup and details.
+
 ## Database setup
 
 Run these in the Supabase SQL editor (idempotent), then expose the schemas

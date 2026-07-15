@@ -10,10 +10,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "icons:android": "node scripts/generate-android-icons.mjs",
+    "android:sync": "npm run build && cap sync android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
+    "@capacitor/android": "^7.6.8",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.8",
+    "@capacitor/status-bar": "^7.0.6",
+    "@capgo/capacitor-social-login": "^7.20.0",
     "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-query": "^5.59.0",
     "class-variance-authority": "^0.7.1",
@@ -32,6 +39,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.8",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",

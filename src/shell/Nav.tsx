@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { nativeGoogleSignOut } from "@/lib/nativeGoogleAuth";
 import { useCurrentUser } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 
@@ -190,6 +191,7 @@ export function Nav() {
                 <button
                   onClick={() => {
                     supabase?.auth.signOut();
+                    void nativeGoogleSignOut();
                     setOpen(false);
                   }}
                   className="text-sm transition-opacity hover:opacity-60"

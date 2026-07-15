@@ -4,6 +4,7 @@
 // to keep API usage minimal. Reuses the ANTHROPIC_API_KEY already configured
 // for api/extract.ts.
 import Anthropic from "@anthropic-ai/sdk";
+import { withCors } from "./_cors";
 
 export const config = { maxDuration: 30 };
 
@@ -32,7 +33,7 @@ async function isAuthenticated(req: Request): Promise<boolean> {
   }
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
@@ -113,3 +114,5 @@ export default async function handler(req: Request): Promise<Response> {
     return Response.json({ error: "Bon uitlezen mislukt — probeer het opnieuw" }, { status: 500 });
   }
 }
+
+export default withCors(handler);

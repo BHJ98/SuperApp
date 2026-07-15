@@ -4,6 +4,7 @@ import { RecipeCard } from "./components/RecipeCard";
 import { ShoppingList } from "./components/ShoppingList";
 import { MealPlanner } from "./components/MealPlanner";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { apiUrl } from "@/lib/apiBase";
 import { useCurrentUser } from "@/lib/auth";
 import {
   addFavorite,
@@ -95,7 +96,7 @@ export default function Groceries() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/extract", {
+      const res = await fetch(apiUrl("/api/extract"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),

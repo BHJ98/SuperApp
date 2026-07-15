@@ -2,6 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { AuthContext } from "@/lib/auth";
+import {
+  isNativePlatform,
+  nativeGoogleIdToken,
+  nativeGoogleSignOut,
+} from "@/lib/nativeGoogleAuth";
 
 interface AuthGateProps {
   children: ReactNode;
@@ -87,12 +92,38 @@ function readOauthErrorFromHash(): string | undefined {
 }
 
 function SignIn() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const onClick = async () => {
     if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
+    if (!isNativePlatform) {
+      // Web: OAuth-redirect via de browser, zoals altijd.
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+      return;
+    }
+    // Native (Capacitor): Chrome kan geblokkeerd zijn op het toestel, dus
+    // geen browser-redirect — Credential Manager geeft een ID-token dat we
+    // rechtstreeks bij Supabase inwisselen.
+    setBusy(true);
+    setError(null);
+    try {
+      const idToken = await nativeGoogleIdToken();
+      const { error: authError } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: idToken,
+      });
+      // Allow-list-afwijzing (Before-User-Created hook) komt hier terug als
+      // error; bij succes flipt onAuthStateChange de gate naar signedIn.
+      if (authError) throw authError;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Inloggen mislukt");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -116,9 +147,18 @@ function SignIn() {
             border: "1px solid var(--border)",
           }}
         >
-          <button onClick={onClick} className="btn-primary w-full py-3">
-            Sign in with Google
+          <button
+            onClick={onClick}
+            disabled={busy}
+            className="btn-primary w-full py-3"
+          >
+            {busy ? "Signing in…" : "Sign in with Google"}
           </button>
+          {error && (
+            <p className="mt-4 text-sm" style={{ color: "var(--muted)" }}>
+              {error}
+            </p>
+          )}
         </div>
       </div>
     </CenteredMessage>
@@ -126,7 +166,11 @@ function SignIn() {
 }
 
 function Denied({ reason }: { reason: string }) {
-  const onTryAgain = () => supabase?.auth.signOut().then(() => window.location.reload());
+  const onTryAgain = async () => {
+    await nativeGoogleSignOut();
+    await supabase?.auth.signOut();
+    window.location.reload();
+  };
   return (
     <CenteredMessage>
       <div

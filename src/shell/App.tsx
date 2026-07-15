@@ -1,5 +1,8 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
+import { App as CapApp } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { isNativePlatform } from "@/lib/nativeGoogleAuth";
 import { AuthGate } from "./AuthGate";
 import { Nav } from "./Nav";
 import { Dashboard } from "./Dashboard";
@@ -15,6 +18,7 @@ const Marblebag = lazy(() => import("@/apps/marblebag"));
 const Verbouwing = lazy(() => import("@/apps/verbouwing"));
 
 export default function App() {
+  useNativeShell();
   return (
     <AuthGate>
       <ToastProvider>
@@ -49,6 +53,23 @@ export default function App() {
       </ToastProvider>
     </AuthGate>
   );
+}
+
+// Android-shell (Capacitor): hardware-terugknop volgt de router-history in
+// plaats van de app te sluiten, en de statusbalk krijgt de thema-achtergrond.
+function useNativeShell() {
+  useEffect(() => {
+    if (!isNativePlatform) return;
+    void StatusBar.setBackgroundColor({ color: "#141416" });
+    void StatusBar.setStyle({ style: Style.Dark });
+    const handle = CapApp.addListener("backButton", ({ canGoBack }) => {
+      if (canGoBack) window.history.back();
+      else void CapApp.minimizeApp();
+    });
+    return () => {
+      void handle.then((h) => h.remove());
+    };
+  }, []);
 }
 
 function RouteErrorBoundary({ children }: { children: ReactNode }) {

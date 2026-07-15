@@ -1,0 +1,79 @@
+# Bouwt op afroep een gesigneerde Android-APK (Capacitor) en publiceert die
+# als GitHub Release om te sideloaden. Zie docs/ANDROID.md voor de eenmalige
+# setup (keystore, Google Cloud, Supabase, secrets).
+name: Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: "Versienaam in de app (bijv. 1.2.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write # gh release create
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          # Repo-variable; moet gelijk zijn aan de waarde in Vercel, anders
+          # gebruikt de app een andere workout-opslag dan de web-app.
+          VITE_WORKOUT_CLOUD: ${{ vars.VITE_WORKOUT_CLOUD }}
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21 # AGP van Capacitor 7 vereist JDK 21; runner-default is 17
+
+      - name: Decode signing keystore
+        run: printf '%s' "$KEYSTORE_B64" | base64 -d > android/release.keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build signed release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/android/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: ${{ inputs.versionName }}
+
+      - name: Collect APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk "SuperApp-${{ inputs.versionName }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superapp-apk
+          path: SuperApp-*.apk
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "android-v${{ inputs.versionName }}-${{ github.run_number }}" \
+            "SuperApp-${{ inputs.versionName }}.apk" \
+            --title "SuperApp Android v${{ inputs.versionName }} (build ${{ github.run_number }})" \
+            --notes "Sideload-APK (Capacitor, versionCode ${{ github.run_number }}). Download de .apk op je telefoon en open hem om te installeren. Data blijft synchroon via Supabase; de gebundelde code updatet alleen via een nieuwe APK."

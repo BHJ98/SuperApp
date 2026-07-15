@@ -10,3 +10,7 @@ coverage
 *.log
 .vite
 *.tsbuildinfo
+
+# Android-signing — keystore hoort nooit in git (zie docs/ANDROID.md)
+*.keystore
+*.jks

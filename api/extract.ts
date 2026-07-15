@@ -7,6 +7,7 @@
 // serverless runtime, so it's dropped here — social URLs fall back to the plain
 // HTML path, which usually yields little. Normal recipe sites work well.
 import Anthropic from "@anthropic-ai/sdk";
+import { withCors } from "./_cors";
 
 export const config = { maxDuration: 30 };
 
@@ -49,7 +50,7 @@ Regels:
 Tekst:
 ${pageContent}`;
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
@@ -85,3 +86,5 @@ export default async function handler(req: Request): Promise<Response> {
     return Response.json({ error: msg }, { status: 500 });
   }
 }
+
+export default withCors(handler);

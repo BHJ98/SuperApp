@@ -16,8 +16,12 @@ import {
   signOut as googleSignOut,
   fetchCalendarEvents,
 } from "../lib/auth/google";
+import { isNativePlatform } from "@/lib/nativeGoogleAuth";
 
-const CALENDAR_AVAILABLE = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+// De Calendar-koppeling draait op een Google-popup in de browser (GIS) en
+// werkt dus niet in de native app — daar verbergen we de knop.
+const CALENDAR_AVAILABLE =
+  Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID) && !isNativePlatform;
 
 export default function InstellingenPage() {
   const { data, ready, mutate, replaceAll, syncStatus } = useAppData();
