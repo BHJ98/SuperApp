@@ -1514,12 +1514,23 @@ export default function App() {
   const initialized = useRef(false)
   const localAction = useRef(false)
   const challengeChecked = useRef(false)
+  // True zodra Supabase minstens één definitief antwoord heeft gegeven (de
+  // rij, of "rij bestaat niet"). Vóór dat moment mag de autosave NOOIT naar de
+  // gedeelde rij schrijven: een trage load + de 1.5s-localStorage-fallback
+  // schreef anders een lege/verouderde staat over de echte data heen — dat
+  // wiste de history van beide toestellen.
+  const serverConfirmed = useRef(false)
+  // Gezet als de staat uit de localStorage-fallback kwam: de eerstvolgende
+  // server-load moet dan ALTIJD gemerged worden (ook midden in een lokale
+  // actie), anders kan de fallback-staat de echte data alsnog verdringen.
+  const initializedFromFallback = useRef(false)
 
   // ── Storage: subscribe on mount ─────────────────────────────────────────────
   useEffect(() => {
     let unsub
     try {
       unsub = subscribeToState((data) => {
+        serverConfirmed.current = true
         if (!initialized.current) {
           const loaded = data ? deepMerge(JSON.parse(JSON.stringify(DEFAULT_STATE)), data) : JSON.parse(JSON.stringify(DEFAULT_STATE))
           loaded.settings.consequences = normaliseConsequences(loaded.settings.consequences)
@@ -1528,25 +1539,35 @@ export default function App() {
           setState(loaded)
           initialized.current = true
         } else {
-          // Remote update from other device — don't overwrite during local action
-          if (!localAction.current && data) {
+          // Remote update van een ander toestel — óf de trage initiële load
+          // die alsnog binnenkomt na de fallback. Niet mergen tijdens een
+          // lokale actie (dan wint de lokale wijziging en saved die zo),
+          // BEHALVE direct na een fallback-init: dan is de server de bron
+          // van waarheid en moet zijn data er hoe dan ook in.
+          const mustMerge = initializedFromFallback.current
+          if ((mustMerge || !localAction.current) && data) {
             setState(prev => {
               const merged = deepMerge(JSON.parse(JSON.stringify(prev)), data)
               merged.settings.consequences = normaliseConsequences(merged.settings.consequences)
               return merged
             })
           }
+          initializedFromFallback.current = false
         }
       })
     } catch {
-      // Firebase not configured yet — fall back to local storage
+      // Supabase niet geconfigureerd — puur lokale modus (saves gaan dan ook
+      // alleen naar localStorage, want serverConfirmed blijft false).
       const raw = localStorage.getItem('the-bag-v2')
       const loaded = raw ? deepMerge(JSON.parse(JSON.stringify(DEFAULT_STATE)), JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT_STATE))
       loaded.settings.consequences = normaliseConsequences(loaded.settings.consequences)
       setState(loaded)
       initialized.current = true
     }
-    // Timeout fallback — use localStorage if Supabase hasn't responded in 1.5s
+    // Timeout-fallback: toon localStorage als Supabase traag is, zodat de app
+    // bruikbaar blijft. Dankzij de serverConfirmed-guard kan deze staat de
+    // gedeelde rij niet meer overschrijven; komt de load later alsnog binnen,
+    // dan wordt de echte data er gewoon overheen gemerged.
     const fallback = setTimeout(() => {
       if (!initialized.current) {
         try {
@@ -1562,6 +1583,7 @@ export default function App() {
           setState(JSON.parse(JSON.stringify(DEFAULT_STATE)))
         }
         initialized.current = true
+        initializedFromFallback.current = true
       }
     }, 1500)
     return () => {
@@ -1574,6 +1596,13 @@ export default function App() {
   useEffect(() => {
     if (!state || !initialized.current) return
     const timer = setTimeout(async () => {
+      // Zonder bevestigde server-load alleen lokaal bewaren — nooit de
+      // gedeelde rij overschrijven met een fallback-staat.
+      if (!serverConfirmed.current) {
+        try { localStorage.setItem('the-bag-v2', JSON.stringify(state)) } catch {}
+        setSaveStatus(new Date())
+        return
+      }
       try {
         const ok = await storageSave(state)
         if (ok) setSaveStatus(new Date())
