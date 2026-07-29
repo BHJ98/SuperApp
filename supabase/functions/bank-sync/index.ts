@@ -25,6 +25,12 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
 
+  // In scope for the catch-block: een EXPIRED_SESSION kan ook pas opduiken bij
+  // het ophalen van accountdetails/transacties (EB geeft de sessie zelf dan
+  // nog gewoon terug), en moet ook daar de status op 'expired' zetten.
+  let adminClient: ReturnType<typeof createClient> | null = null
+  let requisitionId: string | null = null
+
   try {
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -34,7 +40,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
     if (authErr || !user) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
 
-    const adminClient = createClient(
+    adminClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
@@ -42,6 +48,7 @@ Deno.serve(async (req) => {
     const { requisition_id, code, days } = await req.json()
     if (!requisition_id)
       return Response.json({ error: 'Missing requisition_id' }, { status: 400, headers: corsHeaders })
+    requisitionId = requisition_id
     // Regular syncs pull 90 days; a one-time deep sync can request more
     // history (capped at a year — PSD2 consent covers this, availability
     // depends on the bank).
@@ -87,6 +94,17 @@ Deno.serve(async (req) => {
       try {
         session = await ebFetch(`/sessions/${sessionId}`)
       } catch {
+        await adminClient.from('bank_connections')
+          .update({ status: 'expired' }).eq('requisition_id', requisition_id)
+        return Response.json(
+          { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired' },
+          { status: 400, headers: corsHeaders },
+        )
+      }
+      // EB geeft een verlopen sessie soms gewoon terug (status EXPIRED/CLOSED/
+      // REVOKED); alleen de account-endpoints geven dan 401. Vang het hier al af.
+      const sessionStatus = String(session?.status ?? '').toUpperCase()
+      if (sessionStatus && sessionStatus !== 'AUTHORIZED') {
         await adminClient.from('bank_connections')
           .update({ status: 'expired' }).eq('requisition_id', requisition_id)
         return Response.json(
@@ -253,6 +271,15 @@ Deno.serve(async (req) => {
       { headers: corsHeaders },
     )
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 500, headers: corsHeaders })
+    const msg = (err as Error).message
+    if (adminClient && requisitionId && msg.includes('EXPIRED_SESSION')) {
+      await adminClient.from('bank_connections')
+        .update({ status: 'expired' }).eq('requisition_id', requisitionId)
+      return Response.json(
+        { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired' },
+        { status: 400, headers: corsHeaders },
+      )
+    }
+    return Response.json({ error: msg }, { status: 500, headers: corsHeaders })
   }
 })
