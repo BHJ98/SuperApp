@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { useAppData } from '@/apps/finance/providers'
 import { Button } from '@/apps/finance/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/apps/finance/components/ui/card'
@@ -8,6 +9,22 @@ import { useToast } from '@/apps/finance/components/ui/toast'
 import { Building2, Link2, RefreshCw, Trash2, Clock, AlertCircle, ChevronLeft } from 'lucide-react'
 
 type Institution = { id: string; name: string; logo: string | null }
+
+/**
+ * supabase.functions.invoke verstopt de echte fout ("Edge Function returned a
+ * non-2xx status code"); de response-body bevat de bruikbare melding (incl. de
+ * Enable Banking-status en -body via ebFetch). Die halen we hier op zodat de
+ * toast direct de oorzaak toont.
+ */
+async function invokeErrorMessage(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json()
+      if (body && typeof body.error === 'string') return body.error
+    } catch { /* body geen JSON — val terug op de generieke melding */ }
+  }
+  return error instanceof Error ? error.message : 'Onbekende fout'
+}
 
 type BankConnection = {
   id: string
@@ -79,7 +96,8 @@ export default function BankSyncPage() {
       body: { institution_id, redirect_url },
     })
     if (error || !data?.link) {
-      toast(`Verbinding mislukt: ${error?.message ?? 'Onbekende fout'}`, 'error')
+      const detail = error ? await invokeErrorMessage(error) : 'Onbekende fout'
+      toast(`Verbinding mislukt: ${detail}`, 'error')
       setConnecting(false)
       return
     }
@@ -96,7 +114,7 @@ export default function BankSyncPage() {
     setSyncing(null)
 
     if (error) {
-      toast(`Sync mislukt: ${error.message}`, 'error')
+      toast(`Sync mislukt: ${await invokeErrorMessage(error)}`, 'error')
     } else {
       toast(
         data.imported > 0
