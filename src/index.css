@@ -22,6 +22,11 @@
 :root {
   color-scheme: light;
 
+  /* iOS PWA (viewport-fit=cover): ruimte voor statusbalk/notch en home-bar,
+     zodat de header en bottom-navs niet onder de systeem-UI schuiven. */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
   /* Neutrals */
   --base:          #F7F7F4;
   --surface:       #FFFFFF;

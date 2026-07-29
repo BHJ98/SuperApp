@@ -74,8 +74,9 @@ export default function WorkoutApp() {
       >
         {/* Sub-header */}
         <div
-          className="sticky top-[3.25rem] z-[5] backdrop-blur-md"
+          className="sticky z-[5] backdrop-blur-md"
           style={{
+            top: "calc(3.25rem + var(--safe-top))",
             borderBottom: "1px solid var(--border)",
             background: "color-mix(in srgb, var(--base) 92%, transparent)",
           }}
@@ -123,6 +124,7 @@ export default function WorkoutApp() {
         <nav
           className="fixed inset-x-0 bottom-0 z-10 flex justify-around px-2 py-2 backdrop-blur-md"
           style={{
+            paddingBottom: "calc(0.5rem + var(--safe-bottom))",
             borderTop: "1px solid var(--border)",
             background: "color-mix(in srgb, var(--base) 95%, transparent)",
           }}

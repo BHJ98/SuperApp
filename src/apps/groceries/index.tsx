@@ -235,8 +235,11 @@ export default function Groceries() {
         {/* Tabs — sticky below the shell header so you can always jump to the
             list while scrolling in the store (matches the finance sub-nav). */}
         <div
-          className="sticky top-[3.25rem] z-[5] mb-6 backdrop-blur-md"
-          style={{ background: "color-mix(in srgb, var(--base) 92%, transparent)" }}
+          className="sticky z-[5] mb-6 backdrop-blur-md"
+          style={{
+            top: "calc(3.25rem + var(--safe-top))",
+            background: "color-mix(in srgb, var(--base) 92%, transparent)",
+          }}
         >
           <div className="flex gap-0 border-b border-border">
             {(["recipes", "planner", "list"] as Tab[]).map((tab) => (

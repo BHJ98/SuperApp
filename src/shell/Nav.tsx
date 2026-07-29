@@ -87,6 +87,7 @@ export function Nav() {
         style={{
           background: "color-mix(in srgb, var(--base) 88%, transparent)",
           borderBottom: "1px solid var(--border)",
+          paddingTop: "calc(1rem + var(--safe-top))",
         }}
       >
         <Link
@@ -120,7 +121,11 @@ export function Nav() {
           aria-modal="true"
           aria-label="Menu"
           className="fixed inset-0 z-50 flex flex-col px-6 pt-5 pb-8"
-          style={{ background: "var(--base)" }}
+          style={{
+            background: "var(--base)",
+            paddingTop: "calc(1.25rem + var(--safe-top))",
+            paddingBottom: "calc(2rem + var(--safe-bottom))",
+          }}
         >
           {/* Header row */}
           <div className="flex items-center justify-between mb-10">

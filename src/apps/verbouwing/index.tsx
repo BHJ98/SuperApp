@@ -56,8 +56,9 @@ function VerbouwingShell() {
     >
       {/* Sub-nav (zelfde patroon als Finance) */}
       <nav
-        className="sticky top-[3.25rem] z-[5] backdrop-blur-md"
+        className="sticky z-[5] backdrop-blur-md"
         style={{
+          top: "calc(3.25rem + var(--safe-top))",
           borderBottom: "1px solid var(--border)",
           background: "color-mix(in srgb, var(--base) 92%, transparent)",
         }}
