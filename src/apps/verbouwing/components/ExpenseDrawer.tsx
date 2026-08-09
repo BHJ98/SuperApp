@@ -8,6 +8,7 @@ import {
   deleteExpense,
   flattenRooms,
   getReceiptSignedUrl,
+  isPdfFile,
   updateExpense,
   uploadReceipt,
   type NewPart,
@@ -234,16 +235,21 @@ export default function ExpenseDrawer({
     }
   }
 
-  /** Eerste bonfoto als base64 voor de AI-uitlezing (lokaal of uit storage). */
+  /** Eerste bon als base64 voor de AI-uitlezing (lokaal of uit storage).
+   *  Foto's worden gecomprimeerd; PDF's gaan ongewijzigd mee (Claude leest ze direct). */
   async function getReceiptImage(): Promise<{ data: string; mediaType: string } | null> {
     if (pendingFiles.length > 0) {
-      const compressed = await compressImage(pendingFiles[0]);
+      const file = pendingFiles[0];
+      if (isPdfFile(file)) {
+        return { data: await blobToBase64(file), mediaType: "application/pdf" };
+      }
+      const compressed = await compressImage(file);
       return { data: await blobToBase64(compressed), mediaType: "image/jpeg" };
     }
     if (receipts.length > 0) {
       const url = await getReceiptSignedUrl(receipts[0].storage_path);
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Kon bonfoto niet ophalen");
+      if (!res.ok) throw new Error("Kon bon niet ophalen");
       const blob = await res.blob();
       return { data: await blobToBase64(blob), mediaType: blob.type || "image/jpeg" };
     }

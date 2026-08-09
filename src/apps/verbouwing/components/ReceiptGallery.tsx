@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Image as ImageIcon, LoaderCircle, X } from "lucide-react";
+import { Camera, FileText, Image as ImageIcon, LoaderCircle, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import type { Receipt } from "../types";
-import { deleteReceipt, getReceiptSignedUrl, uploadReceipt } from "../lib/data";
+import {
+  deleteReceipt,
+  getReceiptSignedUrl,
+  isPdfFile,
+  isPdfPath,
+  uploadReceipt,
+} from "../lib/data";
 
 type Props = {
   /** null = de uitgave bestaat nog niet; foto's worden dan lokaal vastgehouden
@@ -47,6 +53,22 @@ export default function ReceiptGallery({
     }
   }
 
+  // PDF's passen niet in de img-lightbox; open ze in een eigen tabblad zodat
+  // de browser/OS-viewer het zware werk doet (ook op mobiel). Het venster moet
+  // synchroon geopend worden — na een await blokkeert iOS Safari window.open
+  // als popup.
+  async function openPdf(storagePath: string) {
+    const win = window.open("", "_blank");
+    try {
+      const url = await getReceiptSignedUrl(storagePath);
+      if (win) win.location.href = url;
+      else window.open(url, "_blank", "noopener");
+    } catch {
+      win?.close();
+      toast("Kon PDF niet laden", "error");
+    }
+  }
+
   function openPendingLightbox(url: string) {
     setLightbox({ loading: false, url });
   }
@@ -62,7 +84,8 @@ export default function ReceiptGallery({
 
   useEffect(() => {
     let cancelled = false;
-    const missing = receipts.filter((r) => !urls[r.storage_path]);
+    // PDF's hebben geen thumbnail nodig; hun signed-URL halen we pas op bij openen.
+    const missing = receipts.filter((r) => !isPdfPath(r.storage_path) && !urls[r.storage_path]);
     if (missing.length === 0) return;
     Promise.all(
       missing.map(
@@ -108,7 +131,7 @@ export default function ReceiptGallery({
         created.push(await uploadReceipt(expenseId, file));
       }
       onReceiptsChange([...receipts, ...created]);
-      toast(created.length === 1 ? "Bonfoto toegevoegd" : `${created.length} bonfoto's toegevoegd`);
+      toast(created.length === 1 ? "Bon toegevoegd" : `${created.length} bonnen toegevoegd`);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Upload mislukt", "error");
     } finally {
@@ -117,7 +140,7 @@ export default function ReceiptGallery({
   }
 
   async function handleDelete(receipt: Receipt) {
-    if (!confirm("Bonfoto verwijderen?")) return;
+    if (!confirm("Bon verwijderen?")) return;
     setDeletingId(receipt.id);
     try {
       await deleteReceipt(receipt);
@@ -164,7 +187,7 @@ export default function ReceiptGallery({
             disabled={uploading}
           >
             <ImageIcon className="h-4 w-4" />
-            Uit galerij
+            Foto of PDF
           </button>
         </div>
         <input
@@ -181,7 +204,7 @@ export default function ReceiptGallery({
         <input
           ref={galleryInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -195,9 +218,20 @@ export default function ReceiptGallery({
         <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
           {receipts.map((r) => {
             const url = urls[r.storage_path];
+            const pdf = isPdfPath(r.storage_path);
             return (
               <div key={r.id} className="group relative">
-                {url ? (
+                {pdf ? (
+                  <button
+                    type="button"
+                    className="flex h-20 w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-subtle"
+                    onClick={() => openPdf(r.storage_path)}
+                    title="Open PDF"
+                  >
+                    <FileText className="h-6 w-6 text-muted" />
+                    <span className="text-[10px] font-medium text-muted">PDF</span>
+                  </button>
+                ) : url ? (
                   <button
                     type="button"
                     className="block w-full"
@@ -229,20 +263,32 @@ export default function ReceiptGallery({
               </div>
             );
           })}
-          {pendingFiles.map((_, i) => (
+          {pendingFiles.map((f, i) => (
             <div key={`pending-${i}`} className="relative">
-              <button
-                type="button"
-                className="block w-full"
-                onClick={() => openPendingLightbox(pendingPreviews[i])}
-                title="Bekijk foto"
-              >
-                <img
-                  src={pendingPreviews[i]}
-                  alt="Nieuwe bonfoto"
-                  className="h-20 w-full rounded-lg border border-border object-cover"
-                />
-              </button>
+              {isPdfFile(f) ? (
+                <button
+                  type="button"
+                  className="flex h-20 w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-subtle"
+                  onClick={() => window.open(pendingPreviews[i], "_blank", "noopener")}
+                  title="Open PDF"
+                >
+                  <FileText className="h-6 w-6 text-muted" />
+                  <span className="text-[10px] font-medium text-muted">PDF</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="block w-full"
+                  onClick={() => openPendingLightbox(pendingPreviews[i])}
+                  title="Bekijk foto"
+                >
+                  <img
+                    src={pendingPreviews[i]}
+                    alt="Nieuwe bonfoto"
+                    className="h-20 w-full rounded-lg border border-border object-cover"
+                  />
+                </button>
+              )}
               <span className="absolute bottom-1 left-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
                 nieuw
               </span>
@@ -259,12 +305,12 @@ export default function ReceiptGallery({
         </div>
       ) : (
         <p className="mt-2 text-sm text-faint">
-          Nog geen bonfoto's. Voeg er één of meer toe voor je administratie en garantie.
+          Nog geen bonnen. Voeg een foto of PDF toe voor je administratie en garantie.
         </p>
       )}
       {!expenseId && pendingFiles.length > 0 && (
         <p className="mt-1 text-xs text-muted">
-          Foto's worden geüpload zodra je de uitgave opslaat.
+          Bonnen worden geüpload zodra je de uitgave opslaat.
         </p>
       )}
 

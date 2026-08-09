@@ -408,13 +408,28 @@ export function subscribeVerbouwing(table: VerbouwingTable, onChange: () => void
 
 // ---- Bonnen (storage-bucket "bonnen") ----------------------------------------------
 
-/** Comprimeert en uploadt een bonfoto en registreert de receipts-rij. */
-export async function uploadReceipt(expenseId: string, file: Blob): Promise<Receipt> {
-  const compressed = await compressImage(file);
-  const path = `${expenseId}/${crypto.randomUUID()}.jpg`;
+const MAX_PDF_BYTES = 15 * 1024 * 1024;
 
-  const { error: uploadError } = await bonnen().upload(path, compressed, {
-    contentType: "image/jpeg",
+/** PDF's herkennen we aan het storage-pad; er is geen apart mime-veld in de DB. */
+export function isPdfPath(path: string): boolean {
+  return path.toLowerCase().endsWith(".pdf");
+}
+
+export function isPdfFile(file: Blob): boolean {
+  return file.type === "application/pdf";
+}
+
+/** Uploadt een bon (foto → gecomprimeerd JPEG, PDF → ongewijzigd) en registreert de receipts-rij. */
+export async function uploadReceipt(expenseId: string, file: Blob): Promise<Receipt> {
+  const pdf = isPdfFile(file);
+  if (pdf && file.size > MAX_PDF_BYTES) {
+    throw new Error("PDF te groot (max 15MB)");
+  }
+  const body = pdf ? file : await compressImage(file);
+  const path = `${expenseId}/${crypto.randomUUID()}.${pdf ? "pdf" : "jpg"}`;
+
+  const { error: uploadError } = await bonnen().upload(path, body, {
+    contentType: pdf ? "application/pdf" : "image/jpeg",
   });
   if (uploadError) throw new Error(uploadError.message);
 

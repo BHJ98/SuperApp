@@ -54,11 +54,26 @@ export default async function handler(req: Request): Promise<Response> {
     return Response.json({ error: "Geen afbeelding meegestuurd" }, { status: 400 });
   }
   if (image.length > MAX_IMAGE_BYTES * 1.4) {
-    return Response.json({ error: "Afbeelding te groot (max ~5MB)" }, { status: 400 });
+    return Response.json({ error: "Bestand te groot (max ~5MB)" }, { status: 400 });
   }
-  if (!["image/jpeg", "image/png", "image/webp"].includes(mediaType)) {
-    return Response.json({ error: "Alleen JPEG/PNG/WebP wordt ondersteund" }, { status: 400 });
+  if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(mediaType)) {
+    return Response.json({ error: "Alleen JPEG/PNG/WebP/PDF wordt ondersteund" }, { status: 400 });
   }
+
+  const sourceBlock: Anthropic.ContentBlockParam =
+    mediaType === "application/pdf"
+      ? {
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: image },
+        }
+      : {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mediaType as "image/jpeg" | "image/png" | "image/webp",
+            data: image,
+          },
+        };
 
   const client = new Anthropic();
   try {
@@ -69,14 +84,7 @@ export default async function handler(req: Request): Promise<Response> {
         {
           role: "user",
           content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType as "image/jpeg" | "image/png" | "image/webp",
-                data: image,
-              },
-            },
+            sourceBlock,
             {
               type: "text",
               text:

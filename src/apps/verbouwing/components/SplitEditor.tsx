@@ -67,7 +67,7 @@ export default function SplitEditor({
     try {
       const image = await getReceiptImage();
       if (!image) {
-        setAiError("Upload eerst een bonfoto (hieronder bij Bonnen) om uit te lezen.");
+        setAiError("Upload eerst een bon (foto of PDF, hieronder bij Bonnen) om uit te lezen.");
         return;
       }
       const parsed = await parseReceipt(image.data, image.mediaType);
