@@ -36,6 +36,16 @@ export type ExpensePart = {
   room_id: string;
   amount: number;
   note: string | null;
+  /** Tweede snijvlak naast ruimte (verbouwing.categories); optioneel omdat de
+   *  kolom pas na de verbouwing_categories-migratie bestaat. */
+  category_id?: string | null;
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
 };
 
 export type Receipt = {
@@ -74,4 +84,6 @@ export type EditablePart = {
   room_id: string;
   amount: string;
   note: string;
+  /** Lege string = geen categorie. */
+  category_id: string;
 };

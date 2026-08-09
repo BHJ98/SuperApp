@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Inbox, LoaderCircle } from "lucide-react";
-import type { ExpenseWithDetails, Room } from "../types";
+import type { Category, ExpenseWithDetails, Room } from "../types";
 import {
   fetchInboxCount,
   groupChildrenByParent,
+  listCategories,
   listExpenses,
   listRooms,
   subscribeVerbouwing,
@@ -54,6 +55,7 @@ function BudgetBar({ spent, budget }: { spent: number; budget: number }) {
 export default function Overzicht() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [inboxCount, setInboxCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,14 +63,16 @@ export default function Overzicht() {
 
   const load = useCallback(async () => {
     try {
-      const [r, e, c] = await Promise.all([
+      const [r, e, c, cats] = await Promise.all([
         listRooms(),
         listExpenses(),
         fetchInboxCount(),
+        listCategories(),
       ]);
       setRooms(r);
       setExpenses(e);
       setInboxCount(c);
+      setCategories(cats);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kon overzicht niet laden");
@@ -99,6 +103,32 @@ export default function Overzicht() {
     () => expenses.reduce((sum, e) => sum + e.total_amount, 0),
     [expenses],
   );
+
+  // Besteed per categorie (tweede snijvlak naast ruimtes); parts zonder
+  // categorie vallen in de "Zonder categorie"-bucket onderaan.
+  const categoryBreakdown = useMemo(() => {
+    if (categories.length === 0) return [];
+    const spentByCategory = new Map<string, number>();
+    let uncategorised = 0;
+    for (const e of expenses) {
+      for (const p of e.expense_parts) {
+        if (p.category_id) {
+          spentByCategory.set(p.category_id, (spentByCategory.get(p.category_id) ?? 0) + p.amount);
+        } else {
+          uncategorised += p.amount;
+        }
+      }
+    }
+    const rows = categories
+      .map((c) => ({ id: c.id, name: c.name, spent: spentByCategory.get(c.id) ?? 0 }))
+      .filter((r) => r.spent > 0)
+      .sort((a, b) => b.spent - a.spent);
+    if (uncategorised > 0) {
+      rows.push({ id: "__none", name: "Zonder categorie", spent: uncategorised });
+    }
+    return rows;
+  }, [categories, expenses]);
+  const maxCategorySpent = Math.max(1, ...categoryBreakdown.map((r) => r.spent));
 
   // Per top-level ruimte: eigen + subdeel-besteding, met de subdeel-regels erbij.
   const roomBreakdown = useMemo(() => {
@@ -389,6 +419,42 @@ export default function Overzicht() {
             </div>
           )}
         </div>
+
+        {/* Besteed per categorie (verschijnt zodra de categorieën-migratie er is) */}
+        {categories.length > 0 && (
+          <div className="card">
+            <h2 className="mb-3 font-display text-base font-semibold">Per categorie</h2>
+            {categoryBreakdown.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted">
+                Nog geen uitgaven met een categorie. Kies er één bij het opslaan van een
+                uitgave (per regel bij een splitsing).
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {categoryBreakdown.map((row) => (
+                  <div key={row.id}>
+                    <div className="flex justify-between text-sm">
+                      <span className={row.id === "__none" ? "text-muted" : ""}>
+                        {row.name}
+                      </span>
+                      <span className="font-mono">{formatCurrency(row.spent)}</span>
+                    </div>
+                    <div className="mt-0.5 h-2 overflow-hidden rounded-full bg-subtle">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${(row.spent / maxCategorySpent) * 100}%`,
+                          background:
+                            row.id === "__none" ? "var(--border-strong)" : "var(--accent)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Uitgaven per maand */}
         <div className="card">

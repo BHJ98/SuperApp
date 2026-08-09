@@ -2,13 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, LoaderCircle, Trash2, X } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import type { EditablePart, Expense, ExpenseWithDetails, Receipt, Room } from "../types";
+import type {
+  Category,
+  EditablePart,
+  Expense,
+  ExpenseWithDetails,
+  Receipt,
+  Room,
+} from "../types";
 import {
   createExpense,
   deleteExpense,
   flattenRooms,
   getReceiptSignedUrl,
   isPdfFile,
+  listCategories,
   updateExpense,
   uploadReceipt,
   type NewPart,
@@ -61,7 +69,9 @@ export default function ExpenseDrawer({
   const [totalStr, setTotalStr] = useState("");
   const [mode, setMode] = useState<"single" | "split">("single");
   const [singleRoomId, setSingleRoomId] = useState("");
+  const [singleCategoryId, setSingleCategoryId] = useState("");
   const [parts, setParts] = useState<EditablePart[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
@@ -82,6 +92,7 @@ export default function ExpenseDrawer({
       totalStr: string;
       mode: "single" | "split";
       singleRoomId: string;
+      singleCategoryId: string;
       parts: EditablePart[];
     }) =>
       JSON.stringify({
@@ -91,10 +102,28 @@ export default function ExpenseDrawer({
         totalStr: v.totalStr,
         mode: v.mode,
         singleRoomId: v.singleRoomId,
-        parts: v.parts.map((p) => ({ room_id: p.room_id, amount: p.amount, note: p.note })),
+        singleCategoryId: v.singleCategoryId,
+        parts: v.parts.map((p) => ({
+          room_id: p.room_id,
+          amount: p.amount,
+          note: p.note,
+          category_id: p.category_id,
+        })),
       }),
     [],
   );
+
+  // Categorieën éénmalig laden; [] zolang de migratie nog niet is gedraaid
+  // (de categorie-selects verbergen zichzelf dan).
+  useEffect(() => {
+    let cancelled = false;
+    listCategories().then((c) => {
+      if (!cancelled) setCategories(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Reset alle velden bij openen (op basis van expense / prefill / handmatig).
   useEffect(() => {
@@ -106,6 +135,7 @@ export default function ExpenseDrawer({
       totalStr: "",
       mode: "single" as "single" | "split",
       singleRoomId: "",
+      singleCategoryId: "",
       parts: [] as EditablePart[],
       receipts: [] as Receipt[],
     };
@@ -123,9 +153,11 @@ export default function ExpenseDrawer({
           room_id: p.room_id,
           amount: String(p.amount),
           note: p.note ?? "",
+          category_id: p.category_id ?? "",
         }));
       } else {
         init.singleRoomId = existing[0]?.room_id ?? "";
+        init.singleCategoryId = existing[0]?.category_id ?? "";
       }
     } else if (prefill) {
       init.date = prefill.date;
@@ -139,6 +171,7 @@ export default function ExpenseDrawer({
     setTotalStr(init.totalStr);
     setMode(init.mode);
     setSingleRoomId(init.singleRoomId);
+    setSingleCategoryId(init.singleCategoryId);
     setParts(init.parts);
     setReceipts(init.receipts);
     setPendingFiles([]);
@@ -157,8 +190,16 @@ export default function ExpenseDrawer({
 
   const hasUnsavedChanges =
     pendingFiles.length > 0 ||
-    serialize({ date, description, supplier, totalStr, mode, singleRoomId, parts }) !==
-      snapshotRef.current;
+    serialize({
+      date,
+      description,
+      supplier,
+      totalStr,
+      mode,
+      singleRoomId,
+      singleCategoryId,
+      parts,
+    }) !== snapshotRef.current;
 
   // Sluiten met bevestiging als er niet-opgeslagen wijzigingen zijn. Zodra de
   // uitgave is aangemaakt (savedExpenseId) is het formulier al bewaard; de
@@ -187,8 +228,14 @@ export default function ExpenseDrawer({
 
   function switchToSplit() {
     if (parts.length === 0) {
-      // Start met één regel over het volle bedrag (evt. met de al gekozen ruimte).
-      setParts([newEditablePart({ room_id: singleRoomId, amount: totalStr })]);
+      // Start met één regel over het volle bedrag (evt. met de al gekozen ruimte/categorie).
+      setParts([
+        newEditablePart({
+          room_id: singleRoomId,
+          amount: totalStr,
+          category_id: singleCategoryId,
+        }),
+      ]);
     }
     setMode("split");
   }
@@ -202,6 +249,7 @@ export default function ExpenseDrawer({
       return;
     }
     setSingleRoomId(parts[0]?.room_id ?? singleRoomId);
+    setSingleCategoryId(parts[0]?.category_id ?? singleCategoryId);
     setMode("single");
   }
 
@@ -280,7 +328,14 @@ export default function ExpenseDrawer({
         toast("Kies een ruimte", "error");
         return;
       }
-      partsPayload = [{ room_id: singleRoomId, amount: total, note: null }];
+      partsPayload = [
+        {
+          room_id: singleRoomId,
+          amount: total,
+          note: null,
+          category_id: singleCategoryId || null,
+        },
+      ];
     } else {
       if (parts.some((p) => !p.room_id)) {
         toast("Kies een ruimte voor elke split-regel", "error");
@@ -307,6 +362,7 @@ export default function ExpenseDrawer({
         room_id: p.room_id,
         amount: amounts[i],
         note: p.note.trim() || null,
+        category_id: p.category_id || null,
       }));
     }
 
@@ -500,25 +556,42 @@ export default function ExpenseDrawer({
                 </div>
               </div>
               {mode === "single" ? (
-                <select
-                  className="input"
-                  value={singleRoomId}
-                  onChange={(e) => setSingleRoomId(e.target.value)}
-                >
-                  <option value="">Kies ruimte…</option>
-                  {roomOptions.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {"    ".repeat(o.depth)}
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-2">
+                  <select
+                    className="input"
+                    value={singleRoomId}
+                    onChange={(e) => setSingleRoomId(e.target.value)}
+                  >
+                    <option value="">Kies ruimte…</option>
+                    {roomOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {"    ".repeat(o.depth)}
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                  {categories.length > 0 && (
+                    <select
+                      className="input"
+                      value={singleCategoryId}
+                      onChange={(e) => setSingleCategoryId(e.target.value)}
+                    >
+                      <option value="">Categorie (optioneel)…</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               ) : (
                 <SplitEditor
                   total={total}
                   parts={parts}
                   onPartsChange={setParts}
                   roomOptions={roomOptions}
+                  categories={categories}
                   getReceiptImage={getReceiptImage}
                 />
               )}

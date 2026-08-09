@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Paperclip, Plus, Receipt, Split } from "lucide-react";
-import type { ExpenseWithDetails, Room } from "../types";
+import { LoaderCircle, Paperclip, Plus, Receipt, Split, Tag } from "lucide-react";
+import type { Category, ExpenseWithDetails, Room } from "../types";
 import {
   flattenRooms,
+  listCategories,
   listExpenses,
   listRooms,
   roomWithDescendantIds,
@@ -18,9 +19,12 @@ const LIVE_TABLES: VerbouwingTable[] = ["expenses", "expense_parts", "receipts"]
 export default function Uitgaven() {
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterRoomId, setFilterRoomId] = useState("");
+  // "" = alle, "__none" = zonder categorie, anders een category-id.
+  const [filterCategoryId, setFilterCategoryId] = useState("");
 
   // Drawer: bewerken (expense gezet) of nieuwe handmatige uitgave (open zonder expense)
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -28,9 +32,10 @@ export default function Uitgaven() {
 
   const load = useCallback(async () => {
     try {
-      const [e, r] = await Promise.all([listExpenses(), listRooms()]);
+      const [e, r, c] = await Promise.all([listExpenses(), listRooms(), listCategories()]);
       setExpenses(e);
       setRooms(r);
+      setCategories(c);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kon uitgaven niet laden");
@@ -57,12 +62,30 @@ export default function Uitgaven() {
     return map;
   }, [roomOptions]);
 
-  // Filter op ruimte: een gekozen ruimte telt inclusief haar subdelen.
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) map.set(c.id, c.name);
+    return map;
+  }, [categories]);
+
+  // Filter op ruimte (inclusief subdelen) en/of categorie.
   const filtered = useMemo(() => {
-    if (!filterRoomId) return expenses;
-    const ids = roomWithDescendantIds(rooms, filterRoomId);
-    return expenses.filter((e) => e.expense_parts.some((p) => ids.has(p.room_id)));
-  }, [expenses, rooms, filterRoomId]);
+    let result = expenses;
+    if (filterRoomId) {
+      const ids = roomWithDescendantIds(rooms, filterRoomId);
+      result = result.filter((e) => e.expense_parts.some((p) => ids.has(p.room_id)));
+    }
+    if (filterCategoryId) {
+      result = result.filter((e) =>
+        e.expense_parts.some((p) =>
+          filterCategoryId === "__none"
+            ? !p.category_id
+            : p.category_id === filterCategoryId,
+        ),
+      );
+    }
+    return result;
+  }, [expenses, rooms, filterRoomId, filterCategoryId]);
 
   const totalShown = filtered.reduce((sum, e) => sum + e.total_amount, 0);
 
@@ -92,22 +115,42 @@ export default function Uitgaven() {
         </button>
       </div>
 
-      {/* Filter op ruimte */}
-      <div className="mb-4 max-w-xs">
-        <label className="label">Filter op ruimte</label>
-        <select
-          className="input"
-          value={filterRoomId}
-          onChange={(e) => setFilterRoomId(e.target.value)}
-        >
-          <option value="">Alle ruimtes</option>
-          {roomOptions.map((o) => (
-            <option key={o.id} value={o.id}>
-              {"    ".repeat(o.depth)}
-              {o.name}
-            </option>
-          ))}
-        </select>
+      {/* Filters op ruimte en categorie */}
+      <div className="mb-4 flex flex-wrap gap-3">
+        <div className="w-full max-w-xs">
+          <label className="label">Filter op ruimte</label>
+          <select
+            className="input"
+            value={filterRoomId}
+            onChange={(e) => setFilterRoomId(e.target.value)}
+          >
+            <option value="">Alle ruimtes</option>
+            {roomOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {"    ".repeat(o.depth)}
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {categories.length > 0 && (
+          <div className="w-full max-w-xs">
+            <label className="label">Filter op categorie</label>
+            <select
+              className="input"
+              value={filterCategoryId}
+              onChange={(e) => setFilterCategoryId(e.target.value)}
+            >
+              <option value="">Alle categorieën</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              <option value="__none">Zonder categorie</option>
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="card !p-0 overflow-hidden">
@@ -126,8 +169,8 @@ export default function Uitgaven() {
           <div className="py-12 text-center">
             <Receipt className="mx-auto mb-3 h-10 w-10 text-faint" />
             <p className="text-sm text-muted">
-              {filterRoomId
-                ? "Geen uitgaven voor deze ruimte."
+              {filterRoomId || filterCategoryId
+                ? "Geen uitgaven voor dit filter."
                 : "Nog geen uitgaven. Beoordeel banktransacties of voeg een handmatige uitgave toe."}
             </p>
           </div>
@@ -137,6 +180,13 @@ export default function Uitgaven() {
               const uniqueRoomNames = Array.from(
                 new Set(
                   e.expense_parts.map((p) => roomNameById.get(p.room_id) ?? "Onbekend"),
+                ),
+              );
+              const uniqueCategoryNames = Array.from(
+                new Set(
+                  e.expense_parts
+                    .map((p) => (p.category_id ? categoryNameById.get(p.category_id) : null))
+                    .filter((n): n is string => !!n),
                 ),
               );
               return (
@@ -158,6 +208,12 @@ export default function Uitgaven() {
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       {uniqueRoomNames.map((name) => (
                         <span key={name} className="chip">
+                          {name}
+                        </span>
+                      ))}
+                      {uniqueCategoryNames.map((name) => (
+                        <span key={`cat-${name}`} className="chip inline-flex items-center gap-1">
+                          <Tag className="h-3 w-3" />
                           {name}
                         </span>
                       ))}

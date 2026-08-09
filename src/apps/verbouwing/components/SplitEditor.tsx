@@ -1,12 +1,19 @@
 import { useMemo, useState } from "react";
 import { LoaderCircle, Plus, Sparkles, Trash2 } from "lucide-react";
-import type { EditablePart, RoomOption } from "../types";
+import type { Category, EditablePart, RoomOption } from "../types";
 import { parseReceipt } from "../lib/data";
 import { formatCurrency, parseAmount } from "../lib/format";
 import { validateParts } from "../lib/split";
 
 export function newEditablePart(overrides: Partial<EditablePart> = {}): EditablePart {
-  return { key: crypto.randomUUID(), room_id: "", amount: "", note: "", ...overrides };
+  return {
+    key: crypto.randomUUID(),
+    room_id: "",
+    amount: "",
+    note: "",
+    category_id: "",
+    ...overrides,
+  };
 }
 
 type AiLine = {
@@ -23,6 +30,8 @@ type Props = {
   parts: EditablePart[];
   onPartsChange: (parts: EditablePart[]) => void;
   roomOptions: RoomOption[];
+  /** Leeg = categorie-UI verbergen (migratie nog niet gedraaid). */
+  categories: Category[];
   /** Levert de eerste bonfoto als base64 (of null als er nog geen foto is). */
   getReceiptImage: () => Promise<{ data: string; mediaType: string } | null>;
 };
@@ -32,6 +41,7 @@ export default function SplitEditor({
   parts,
   onPartsChange,
   roomOptions,
+  categories,
   getReceiptImage,
 }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
@@ -168,6 +178,20 @@ export default function SplitEditor({
               value={p.amount}
               onChange={(e) => updatePart(p.key, { amount: e.target.value })}
             />
+            {categories.length > 0 && (
+              <select
+                className="input w-40 min-w-0 basis-36 !py-1.5 text-sm"
+                value={p.category_id}
+                onChange={(e) => updatePart(p.key, { category_id: e.target.value })}
+              >
+                <option value="">Categorie…</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
               className="input min-w-0 flex-1 basis-32 !py-1.5 text-sm"
               placeholder="Notitie (optioneel)"

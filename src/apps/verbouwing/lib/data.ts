@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type {
+  Category,
   Expense,
   ExpenseWithDetails,
   InboxTransaction,
@@ -124,6 +125,27 @@ export function roomWithDescendantIds(rooms: Room[], roomId: string): Set<string
   return ids;
 }
 
+// ---- Categorieën -------------------------------------------------------------
+
+/**
+ * Tweede snijvlak naast ruimtes. Geeft [] terug zolang de
+ * verbouwing_categories-migratie nog niet gedraaid is (tabel bestaat dan niet),
+ * zodat de categorie-UI zichzelf verbergt in plaats van de pagina te breken.
+ */
+export async function listCategories(): Promise<Category[]> {
+  try {
+    const { data, error } = await vdb()
+      .from("categories")
+      .select("*")
+      .order("sort_order")
+      .order("name");
+    if (error) return [];
+    return (data ?? []) as Category[];
+  } catch {
+    return [];
+  }
+}
+
 // ---- Uitgaven + parts ---------------------------------------------------------
 
 const EXPENSE_SELECT = "*, expense_parts(*), receipts(*)";
@@ -150,6 +172,8 @@ export type NewPart = {
   room_id: string;
   amount: number;
   note: string | null;
+  /** null = geen categorie; de RPC schrijft hem naar expense_parts.category_id. */
+  category_id: string | null;
 };
 
 /**
