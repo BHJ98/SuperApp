@@ -41,12 +41,19 @@ export default async function handler(req: Request): Promise<Response> {
     return Response.json({ error: "Niet geautoriseerd" }, { status: 401 });
   }
 
-  let body: { image?: string; mediaType?: string };
+  let body: { image?: string; mediaType?: string; categories?: unknown };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: "Ongeldige aanvraag" }, { status: 400 });
   }
+
+  // Optionele categorienamen waaruit de AI per regel mag kiezen. Defensief
+  // begrensd: dit belandt letterlijk in de prompt.
+  const categories = (Array.isArray(body.categories) ? body.categories : [])
+    .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+    .map((c) => c.trim().slice(0, 50))
+    .slice(0, 30);
 
   const image = body.image ?? "";
   const mediaType = body.mediaType ?? "image/jpeg";
@@ -92,11 +99,19 @@ export default async function handler(req: Request): Promise<Response> {
                 "regelitems uit. Antwoord UITSLUITEND met JSON in dit formaat, geen " +
                 "andere tekst:\n" +
                 '{"supplier": "winkelnaam of null", "date": "YYYY-MM-DD of null", ' +
-                '"total": 123.45, "lines": [{"description": "omschrijving", "amount": 12.34}]}\n' +
+                '"total": 123.45, "lines": [{"description": "omschrijving", "amount": 12.34' +
+                (categories.length > 0 ? ', "category": "categorienaam of null"' : "") +
+                "}]}\n" +
                 "Bedragen als positieve getallen met punt als decimaalteken. Sla " +
                 "kortingsregels op als negatieve amounts. Statiegeld, emballage en " +
                 "btw-subtotalen niet als aparte regels opnemen tenzij ze het totaal " +
-                "beïnvloeden. Als de bon onleesbaar is, geef {\"error\": \"onleesbaar\"}.",
+                "beïnvloeden. " +
+                (categories.length > 0
+                  ? "Kies per regel de best passende category uit exact deze lijst " +
+                    `(letterlijk overnemen): ${categories.join(", ")}. ` +
+                    "Twijfel je, gebruik dan null in plaats van te gokken. "
+                  : "") +
+                'Als de bon onleesbaar is, geef {"error": "onleesbaar"}.',
             },
           ],
         },

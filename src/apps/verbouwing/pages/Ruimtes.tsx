@@ -10,13 +10,17 @@ import {
   X,
 } from "lucide-react";
 import { useToast } from "@/lib/toast";
-import type { Room } from "../types";
+import type { Category, Room } from "../types";
 import {
+  createCategory,
   createRoom,
+  deleteCategory,
   deleteRoom,
   groupChildrenByParent,
+  listCategories,
   listRooms,
   subscribeVerbouwing,
+  updateCategory,
   updateRoom,
 } from "../lib/data";
 import { buildRoomBudgetTree, totalEffectiveBudget } from "../lib/budget";
@@ -26,7 +30,235 @@ import { formatCurrency, parseAmount } from "../lib/format";
 // totaalbudget en het budget van een ruimte-met-subdelen worden automatisch
 // berekend (som van subdelen resp. som van alle ruimtes) — zie lib/budget.ts.
 // Alleen een ruimte zonder subdelen (of een subdeel zelf) heeft nog een
-// handmatig budgetveld.
+// handmatig budgetveld. Onderaan staat ook het beheer van categorieën (het
+// tweede snijvlak op uitgaven).
+
+/** Vertaalt een PostgREST-fout naar een bruikbare melding als de
+ *  categorieën-migratie nog niet gedraaid is. */
+function categoryErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : "Er ging iets mis";
+  return /does not exist|schema cache/i.test(msg)
+    ? "Categorieën-tabel ontbreekt nog — draai eerst de migratie verbouwing_categories in Supabase"
+    : msg;
+}
+
+function CategoryManager() {
+  const { toast } = useToast();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addName, setAddName] = useState("");
+
+  const load = useCallback(async () => {
+    setCategories(await listCategories());
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const sorted = useMemo(
+    () =>
+      [...categories].sort(
+        (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
+      ),
+    [categories],
+  );
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const name = editName.trim();
+    if (!name) {
+      toast("Vul een naam in", "error");
+      return;
+    }
+    try {
+      await updateCategory(editingId, { name });
+      setCategories((prev) => prev.map((c) => (c.id === editingId ? { ...c, name } : c)));
+      setEditingId(null);
+      toast("Categorie opgeslagen");
+    } catch (err) {
+      toast(categoryErrorMessage(err), "error");
+    }
+  }
+
+  /** Wisselt een categorie van plek met haar buur (via sort_order). */
+  async function move(category: Category, dir: -1 | 1) {
+    const idx = sorted.findIndex((c) => c.id === category.id);
+    const target = sorted[idx + dir];
+    if (!target) return;
+    const aOrder = category.sort_order;
+    const bOrder = target.sort_order;
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.id === category.id
+          ? { ...c, sort_order: bOrder }
+          : c.id === target.id
+          ? { ...c, sort_order: aOrder }
+          : c,
+      ),
+    );
+    try {
+      await Promise.all([
+        updateCategory(category.id, { sort_order: bOrder }),
+        updateCategory(target.id, { sort_order: aOrder }),
+      ]);
+    } catch (err) {
+      toast(categoryErrorMessage(err), "error");
+      load();
+    }
+  }
+
+  async function handleDelete(category: Category) {
+    if (
+      !confirm(
+        `"${category.name}" verwijderen? Uitgaven blijven staan; regels met deze ` +
+          "categorie worden 'zonder categorie'.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteCategory(category.id);
+      setCategories((prev) => prev.filter((c) => c.id !== category.id));
+      toast("Categorie verwijderd");
+    } catch (err) {
+      toast(categoryErrorMessage(err), "error");
+    }
+  }
+
+  async function saveAdd() {
+    const name = addName.trim();
+    if (!name) {
+      toast("Vul een naam in", "error");
+      return;
+    }
+    const sortOrder = Math.max(0, ...sorted.map((c) => c.sort_order)) + 10;
+    try {
+      const created = await createCategory({ name, sort_order: sortOrder });
+      setCategories((prev) => [...prev, created]);
+      setAddName("");
+      setAdding(false);
+      toast("Categorie toegevoegd");
+    } catch (err) {
+      toast(categoryErrorMessage(err), "error");
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2 className="font-display text-base font-semibold">Categorieën</h2>
+      <p className="mt-1 text-xs text-muted">
+        Tweede snijvlak op uitgaven, naast de ruimte (bijv. Verf of Meubels). Te kiezen per
+        uitgave of per split-regel.
+      </p>
+      <div className="mt-2 divide-y" style={{ borderColor: "var(--border)" }}>
+        {sorted.map((category, idx) => (
+          <div key={category.id}>
+            {editingId === category.id ? (
+              <div className="flex flex-wrap items-center gap-2 py-2">
+                <input
+                  className="input min-w-0 flex-1 basis-40 !py-1.5 text-sm"
+                  value={editName}
+                  autoFocus
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEdit();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                />
+                <button className="btn-primary px-3 py-1.5 text-sm" onClick={saveEdit}>
+                  <Check className="h-4 w-4" />
+                </button>
+                <button
+                  className="btn-ghost px-3 py-1.5 text-sm"
+                  onClick={() => setEditingId(null)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="group flex items-center gap-2 py-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {category.name}
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    className="rounded-lg p-1.5 text-muted transition hover:text-ink disabled:opacity-30"
+                    onClick={() => move(category, -1)}
+                    disabled={idx === 0}
+                    title="Omhoog"
+                    aria-label={`${category.name} omhoog`}
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-lg p-1.5 text-muted transition hover:text-ink disabled:opacity-30"
+                    onClick={() => move(category, 1)}
+                    disabled={idx === sorted.length - 1}
+                    title="Omlaag"
+                    aria-label={`${category.name} omlaag`}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-lg p-1.5 text-muted transition hover:text-ink"
+                    onClick={() => {
+                      setEditingId(category.id);
+                      setEditName(category.name);
+                    }}
+                    title="Bewerken"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-lg p-1.5 text-muted transition hover:text-danger"
+                    onClick={() => handleDelete(category)}
+                    title="Verwijderen"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {sorted.length === 0 && (
+          <p className="py-4 text-sm text-muted">Nog geen categorieën.</p>
+        )}
+      </div>
+      <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+        {adding ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              className="input min-w-0 flex-1 basis-40 !py-1.5 text-sm"
+              placeholder="Naam nieuwe categorie"
+              value={addName}
+              autoFocus
+              onChange={(e) => setAddName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveAdd();
+                if (e.key === "Escape") setAdding(false);
+              }}
+            />
+            <button className="btn-primary px-3 py-1.5 text-sm" onClick={saveAdd}>
+              <Check className="h-4 w-4" />
+            </button>
+            <button className="btn-ghost px-3 py-1.5 text-sm" onClick={() => setAdding(false)}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <button className="btn-ghost px-3 py-1.5 text-sm" onClick={() => setAdding(true)}>
+            <Plus className="h-4 w-4" />
+            Categorie toevoegen
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Ruimtes() {
   const { toast } = useToast();
@@ -405,6 +637,9 @@ export default function Ruimtes() {
           )}
         </div>
       </div>
+
+      {/* Categorieën (tweede snijvlak op uitgaven) */}
+      <CategoryManager />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Paperclip, Plus, Receipt, Split, Tag } from "lucide-react";
+import { LoaderCircle, Paperclip, Plus, Receipt, Search, Split, Tag } from "lucide-react";
 import type { Category, ExpenseWithDetails, Room } from "../types";
 import {
   flattenRooms,
@@ -25,6 +25,7 @@ export default function Uitgaven() {
   const [filterRoomId, setFilterRoomId] = useState("");
   // "" = alle, "__none" = zonder categorie, anders een category-id.
   const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [search, setSearch] = useState("");
 
   // Drawer: bewerken (expense gezet) of nieuwe handmatige uitgave (open zonder expense)
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -68,7 +69,7 @@ export default function Uitgaven() {
     return map;
   }, [categories]);
 
-  // Filter op ruimte (inclusief subdelen) en/of categorie.
+  // Filter op ruimte (inclusief subdelen), categorie en/of zoekterm.
   const filtered = useMemo(() => {
     let result = expenses;
     if (filterRoomId) {
@@ -84,8 +85,27 @@ export default function Uitgaven() {
         ),
       );
     }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      // Doorzoekt leverancier, omschrijving, notities van split-regels en de
+      // namen van gekoppelde ruimtes/categorieën.
+      result = result.filter((e) => {
+        const haystack = [
+          e.supplier ?? "",
+          e.description,
+          ...e.expense_parts.flatMap((p) => [
+            p.note ?? "",
+            roomNameById.get(p.room_id) ?? "",
+            p.category_id ? categoryNameById.get(p.category_id) ?? "" : "",
+          ]),
+        ]
+          .join("\n")
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+    }
     return result;
-  }, [expenses, rooms, filterRoomId, filterCategoryId]);
+  }, [expenses, rooms, filterRoomId, filterCategoryId, search, roomNameById, categoryNameById]);
 
   const totalShown = filtered.reduce((sum, e) => sum + e.total_amount, 0);
 
@@ -115,8 +135,21 @@ export default function Uitgaven() {
         </button>
       </div>
 
-      {/* Filters op ruimte en categorie */}
+      {/* Zoeken + filters op ruimte en categorie */}
       <div className="mb-4 flex flex-wrap gap-3">
+        <div className="w-full max-w-xs">
+          <label className="label">Zoeken</label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              type="search"
+              className="input !pl-9"
+              placeholder="Leverancier, omschrijving, notitie…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
         <div className="w-full max-w-xs">
           <label className="label">Filter op ruimte</label>
           <select
@@ -169,7 +202,7 @@ export default function Uitgaven() {
           <div className="py-12 text-center">
             <Receipt className="mx-auto mb-3 h-10 w-10 text-faint" />
             <p className="text-sm text-muted">
-              {filterRoomId || filterCategoryId
+              {filterRoomId || filterCategoryId || search.trim()
                 ? "Geen uitgaven voor dit filter."
                 : "Nog geen uitgaven. Beoordeel banktransacties of voeg een handmatige uitgave toe."}
             </p>

@@ -22,6 +22,8 @@ type AiLine = {
   description: string;
   amount: number;
   room_id: string;
+  /** Door de AI voorgestelde categorie (als id), door de gebruiker aan te passen. */
+  category_id: string;
 };
 
 type Props = {
@@ -80,11 +82,17 @@ export default function SplitEditor({
         setAiError("Upload eerst een bon (foto of PDF, hieronder bij Bonnen) om uit te lezen.");
         return;
       }
-      const parsed = await parseReceipt(image.data, image.mediaType);
+      const parsed = await parseReceipt(
+        image.data,
+        image.mediaType,
+        categories.map((c) => c.name),
+      );
       if (parsed.lines.length === 0) {
         setAiError("Geen regelitems gevonden op de bon.");
         return;
       }
+      // Voorgestelde categorienaam → id (case-insensitief); onbekend = leeg.
+      const categoryIdByName = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]));
       setAiLines(
         parsed.lines.map((l) => ({
           key: crypto.randomUUID(),
@@ -92,6 +100,9 @@ export default function SplitEditor({
           description: l.description,
           amount: l.amount,
           room_id: "",
+          category_id: l.category
+            ? categoryIdByName.get(l.category.toLowerCase()) ?? ""
+            : "",
         })),
       );
     } catch (err) {
@@ -131,6 +142,7 @@ export default function SplitEditor({
         room_id: l.room_id,
         amount: String(l.amount),
         note: l.description,
+        category_id: l.category_id,
       }),
     );
     // Eén lege of totaal-brede prefill-regel wordt vervangen; echte handmatige
@@ -251,8 +263,8 @@ export default function SplitEditor({
               Bon uitlezen met AI
             </button>
             <span className="text-xs text-muted">
-              Leest de regelitems van de eerste bonfoto en helpt ze aan ruimtes toe te wijzen.
-              Gebruikt de AI-service — alleen als je hierop klikt.
+              Leest de regelitems van de eerste bon uit en stelt waar mogelijk per regel een
+              categorie voor. Gebruikt de AI-service — alleen als je hierop klikt.
             </span>
           </div>
         ) : (
@@ -302,6 +314,21 @@ export default function SplitEditor({
                       </option>
                     ))}
                   </select>
+                  {categories.length > 0 && (
+                    <select
+                      className="input w-32 !py-1 text-sm"
+                      value={l.category_id}
+                      onChange={(e) => updateAiLine(l.key, { category_id: e.target.value })}
+                      title="Categorie (AI-suggestie, pas aan waar nodig)"
+                    >
+                      <option value="">Categorie…</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               ))}
             </div>

@@ -60,6 +60,8 @@ export default function Overzicht() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Aparte uitklap-status voor de ruimte × categorie-kaart.
+  const [expandedCross, setExpandedCross] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -129,6 +131,58 @@ export default function Overzicht() {
     return rows;
   }, [categories, expenses]);
   const maxCategorySpent = Math.max(1, ...categoryBreakdown.map((r) => r.spent));
+
+  // Ruimte × categorie: per top-level ruimte (subdelen meegeteld) de besteding
+  // per categorie. Alleen ruimtes met uitgaven komen voor.
+  const crossBreakdown = useMemo(() => {
+    if (categories.length === 0) return [];
+    const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+    // Subdeel → top-level ruimte (de boom is maximaal twee niveaus diep).
+    const topByRoomId = new Map(rooms.map((r) => [r.id, r.parent_id ?? r.id]));
+    const perRoom = new Map<string, Map<string, number>>();
+    for (const e of expenses) {
+      for (const p of e.expense_parts) {
+        const top = topByRoomId.get(p.room_id) ?? p.room_id;
+        const key = p.category_id ?? "__none";
+        let m = perRoom.get(top);
+        if (!m) {
+          m = new Map();
+          perRoom.set(top, m);
+        }
+        m.set(key, (m.get(key) ?? 0) + p.amount);
+      }
+    }
+    return rooms
+      .filter((r) => !r.parent_id)
+      .map((room) => {
+        const m = perRoom.get(room.id);
+        if (!m) return null;
+        const entries = Array.from(m.entries())
+          .map(([key, amount]) => ({
+            key,
+            name:
+              key === "__none"
+                ? "Zonder categorie"
+                : categoryName.get(key) ?? "Onbekend",
+            amount,
+          }))
+          // Grootste eerst; "Zonder categorie" altijd onderaan.
+          .sort((a, b) =>
+            a.key === "__none" ? 1 : b.key === "__none" ? -1 : b.amount - a.amount,
+          );
+        return { room, total: entries.reduce((s, x) => s + x.amount, 0), entries };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+  }, [rooms, expenses, categories]);
+
+  function toggleCross(id: string) {
+    setExpandedCross((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // Per top-level ruimte: eigen + subdeel-besteding, met de subdeel-regels erbij.
   const roomBreakdown = useMemo(() => {
@@ -453,6 +507,56 @@ export default function Overzicht() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Ruimte × categorie: uitklapbare besteding per categorie binnen elke ruimte */}
+        {categories.length > 0 && crossBreakdown.length > 0 && (
+          <div className="card lg:col-span-2">
+            <h2 className="mb-3 font-display text-base font-semibold">Ruimte × categorie</h2>
+            <div className="space-y-1">
+              {crossBreakdown.map(({ room, total, entries }) => {
+                const isOpen = expandedCross.has(room.id);
+                return (
+                  <div key={room.id}>
+                    <button
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-subtle"
+                      onClick={() => toggleCross(room.id)}
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {room.name}
+                      </span>
+                      <span className="whitespace-nowrap font-mono text-sm">
+                        {formatCurrency(total)}
+                      </span>
+                    </button>
+                    {isOpen &&
+                      entries.map((entry) => (
+                        <div
+                          key={entry.key}
+                          className="ml-8 flex items-baseline justify-between gap-2 px-2 py-1"
+                        >
+                          <span
+                            className={`truncate text-sm ${
+                              entry.key === "__none" ? "text-faint" : "text-muted"
+                            }`}
+                          >
+                            {entry.name}
+                          </span>
+                          <span className="whitespace-nowrap font-mono text-xs text-muted">
+                            {formatCurrency(entry.amount)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

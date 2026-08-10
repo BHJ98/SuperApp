@@ -146,6 +146,30 @@ export async function listCategories(): Promise<Category[]> {
   }
 }
 
+export async function createCategory(category: {
+  name: string;
+  sort_order?: number;
+}): Promise<Category> {
+  const { data, error } = await vdb().from("categories").insert(category).select().single();
+  if (error) throw new Error(error.message);
+  return data as Category;
+}
+
+export async function updateCategory(
+  id: string,
+  patch: Partial<Pick<Category, "name" | "sort_order">>,
+): Promise<void> {
+  const { error } = await vdb().from("categories").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Verwijdert een categorie; verdeel-regels behouden hun bedrag maar worden
+ *  "zonder categorie" (FK is on delete set null). */
+export async function deleteCategory(id: string): Promise<void> {
+  const { error } = await vdb().from("categories").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 // ---- Uitgaven + parts ---------------------------------------------------------
 
 const EXPENSE_SELECT = "*, expense_parts(*), receipts(*)";
@@ -489,6 +513,8 @@ export async function getReceiptSignedUrl(path: string): Promise<string> {
 export async function parseReceipt(
   imageBase64: string,
   mediaType: string,
+  /** Categorienamen waaruit de AI per regel mag kiezen (leeg = geen suggesties). */
+  categoryNames: string[] = [],
 ): Promise<ParsedReceipt> {
   // Stuur het Supabase-access-token mee zodat het endpoint de aanvraag kan
   // authenticeren (het endpoint roept anders een betaalde AI-service open aan).
@@ -501,7 +527,7 @@ export async function parseReceipt(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ image: imageBase64, mediaType }),
+    body: JSON.stringify({ image: imageBase64, mediaType, categories: categoryNames }),
   });
   const body: unknown = await res.json().catch(() => null);
   const obj = (body ?? {}) as Record<string, unknown>;
@@ -518,9 +544,13 @@ export async function parseReceipt(
         (l): l is { description?: unknown; amount: number } =>
           !!l && typeof (l as { amount?: unknown }).amount === "number",
       )
-      .map((l) => ({
-        description: typeof l.description === "string" ? l.description : "",
-        amount: l.amount,
-      })),
+      .map((l) => {
+        const category = (l as { category?: unknown }).category;
+        return {
+          description: typeof l.description === "string" ? l.description : "",
+          amount: l.amount,
+          category: typeof category === "string" && category.trim() ? category : null,
+        };
+      }),
   };
 }

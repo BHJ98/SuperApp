@@ -69,8 +69,13 @@ export type InboxTransaction = {
   counterparty_name: string | null;
 };
 
-/** Antwoord van /api/parse-receipt. */
-export type ParsedReceiptLine = { description: string; amount: number };
+/** Antwoord van /api/parse-receipt. `category` is de door de AI voorgestelde
+ *  categorienaam (uit de meegestuurde lijst) of null. */
+export type ParsedReceiptLine = {
+  description: string;
+  amount: number;
+  category: string | null;
+};
 export type ParsedReceipt = {
   supplier: string | null;
   date: string | null;
