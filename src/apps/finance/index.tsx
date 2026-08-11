@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { useBankAutoSync } from "@/lib/bankAutoSync";
 import { AppDataProvider } from "./providers";
-import { ToastProvider } from "./components/ui/toast";
+import { ToastProvider, useToast } from "./components/ui/toast";
 import "./finance.css";
 
 import Dashboard from "./pages/Dashboard";
@@ -48,6 +49,12 @@ const beheerPaths = [
 
 function FinanceShell() {
   const location = useLocation();
+  const { toast } = useToast();
+  // Ververst bij het openen van de app op de achtergrond alle actieve
+  // bankkoppelingen (gethrottled — zie lib/bankAutoSync).
+  useBankAutoSync((imported) =>
+    toast(imported === 1 ? "1 nieuwe transactie geïmporteerd" : `${imported} nieuwe transacties geïmporteerd`),
+  );
   const beheerActive = beheerPaths.some(
     (p) => location.pathname === p || location.pathname.startsWith(p + "/")
   );

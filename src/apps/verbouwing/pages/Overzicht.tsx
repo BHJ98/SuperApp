@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Inbox, LoaderCircle } from "lucide-react";
+import { useBankSyncRefresh } from "@/lib/bankAutoSync";
 import type { Category, ExpenseWithDetails, Room } from "../types";
 import {
   fetchInboxCount,
@@ -90,6 +91,9 @@ export default function Overzicht() {
     const unsubs = LIVE_TABLES.map((t) => subscribeVerbouwing(t, debouncedLoad));
     return () => unsubs.forEach((u) => u());
   }, [load, debouncedLoad]);
+
+  // Herlaad (o.a. de inbox-teller) na een automatische banksync.
+  useBankSyncRefresh(debouncedLoad);
 
   const spentByRoom = useMemo(() => {
     const map = new Map<string, number>();

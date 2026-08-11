@@ -3,6 +3,8 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import { DoorOpen, Inbox, LayoutDashboard, Receipt } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { BANK_AUTO_SYNCED_EVENT, useBankAutoSync } from "@/lib/bankAutoSync";
+import { useToast } from "@/lib/toast";
 import { fetchInboxCount, subscribeVerbouwing } from "./lib/data";
 
 import Overzicht from "./pages/Overzicht";
@@ -36,10 +38,13 @@ function useInboxCount(): number {
     refresh();
     const unsubExpenses = subscribeVerbouwing("expenses", refresh);
     const unsubDismissed = subscribeVerbouwing("dismissed_transactions", refresh);
+    // Nieuwe banktransacties uit de automatische sync = nieuwe inbox-items.
+    window.addEventListener(BANK_AUTO_SYNCED_EVENT, refresh);
     return () => {
       cancelled = true;
       unsubExpenses();
       unsubDismissed();
+      window.removeEventListener(BANK_AUTO_SYNCED_EVENT, refresh);
     };
   }, []);
   return count;
@@ -47,6 +52,16 @@ function useInboxCount(): number {
 
 function VerbouwingShell() {
   const inboxCount = useInboxCount();
+  const { toast } = useToast();
+  // Ververst bij het openen van de app op de achtergrond alle actieve
+  // bankkoppelingen (gethrottled — zie lib/bankAutoSync).
+  useBankAutoSync((imported) =>
+    toast(
+      imported === 1
+        ? "1 nieuwe banktransactie geïmporteerd"
+        : `${imported} nieuwe banktransacties geïmporteerd`,
+    ),
+  );
 
   return (
     <div

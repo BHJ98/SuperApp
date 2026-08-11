@@ -1,6 +1,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useBankSyncRefresh } from "@/lib/bankAutoSync";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent } from "@/apps/finance/components/ui/card";
@@ -195,6 +196,9 @@ export default function TransactionsPage() {
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  // Herlaad de lijst zodra de automatische banksync nieuwe transacties vond.
+  useBankSyncRefresh(loadTransactions);
 
   function getCategoryPath(categoryId: string | null): string {
     if (!categoryId) return "";

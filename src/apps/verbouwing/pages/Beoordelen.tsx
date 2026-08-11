@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Inbox, LoaderCircle, RotateCcw, Search } from "lucide-react";
+import { useBankSyncRefresh } from "@/lib/bankAutoSync";
 import { useToast } from "@/lib/toast";
 import type { InboxTransaction, Room } from "../types";
 import {
@@ -119,6 +120,9 @@ export default function Beoordelen() {
       unsubDismissed();
     };
   }, [debouncedRefresh]);
+
+  // Nieuwe transacties uit de automatische banksync direct in de inbox tonen.
+  useBankSyncRefresh(debouncedRefresh);
 
   async function loadMore() {
     setLoadingMore(true);
