@@ -1,7 +1,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useBankSyncRefresh } from "@/lib/bankAutoSync";
+import { syncAllBanksNow, useBankSyncRefresh } from "@/lib/bankAutoSync";
 import { useAppData } from "@/apps/finance/providers";
 import { Button } from "@/apps/finance/components/ui/button";
 import { Card, CardContent } from "@/apps/finance/components/ui/card";
@@ -199,6 +199,32 @@ export default function TransactionsPage() {
 
   // Herlaad de lijst zodra de automatische banksync nieuwe transacties vond.
   useBankSyncRefresh(loadTransactions);
+
+  const [syncingBanks, setSyncingBanks] = useState(false);
+  async function syncBanks() {
+    setSyncingBanks(true);
+    try {
+      const { imported, failed } = await syncAllBanksNow();
+      if (failed > 0) {
+        toast(
+          `${failed} koppeling(en) gaven een fout — zie Beheer → Bankkoppeling`,
+          "error",
+        );
+      } else if (imported > 0) {
+        toast(
+          imported === 1
+            ? "1 nieuwe transactie geïmporteerd"
+            : `${imported} nieuwe transacties geïmporteerd`,
+        );
+      } else {
+        toast("Geen nieuwe transacties");
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Sync mislukt", "error");
+    } finally {
+      setSyncingBanks(false);
+    }
+  }
 
   function getCategoryPath(categoryId: string | null): string {
     if (!categoryId) return "";
@@ -550,6 +576,10 @@ export default function TransactionsPage() {
             {totalCount} transactie{totalCount !== 1 ? "s" : ""}
           </p>
         </div>
+        <Button variant="outline" onClick={syncBanks} disabled={syncingBanks}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${syncingBanks ? "animate-spin" : ""}`} />
+          {syncingBanks ? "Banken syncen…" : "Sync banken"}
+        </Button>
       </div>
 
       {/* Search & filter bar */}

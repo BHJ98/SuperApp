@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Inbox, LoaderCircle, RotateCcw, Search } from "lucide-react";
-import { useBankSyncRefresh } from "@/lib/bankAutoSync";
+import { Inbox, LoaderCircle, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { syncAllBanksNow, useBankSyncRefresh } from "@/lib/bankAutoSync";
 import { useToast } from "@/lib/toast";
 import type { InboxTransaction, Room } from "../types";
 import {
@@ -123,6 +123,32 @@ export default function Beoordelen() {
 
   // Nieuwe transacties uit de automatische banksync direct in de inbox tonen.
   useBankSyncRefresh(debouncedRefresh);
+
+  const [syncingBanks, setSyncingBanks] = useState(false);
+  async function syncBanks() {
+    setSyncingBanks(true);
+    try {
+      const { imported, failed } = await syncAllBanksNow();
+      if (failed > 0) {
+        toast(
+          `${failed} koppeling(en) gaven een fout — zie Finance → Beheer → Bankkoppeling`,
+          "error",
+        );
+      } else if (imported > 0) {
+        toast(
+          imported === 1
+            ? "1 nieuwe banktransactie geïmporteerd"
+            : `${imported} nieuwe banktransacties geïmporteerd`,
+        );
+      } else {
+        toast("Geen nieuwe transacties");
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Sync mislukt", "error");
+    } finally {
+      setSyncingBanks(false);
+    }
+  }
 
   async function loadMore() {
     setLoadingMore(true);
@@ -288,11 +314,22 @@ export default function Beoordelen() {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="font-display text-2xl font-bold tracking-tight">Beoordelen</h1>
-        <p className="mt-1 text-sm text-muted">
-          Markeer banktransacties als verbouwing-uitgave of als niet relevant.
-        </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight">Beoordelen</h1>
+          <p className="mt-1 text-sm text-muted">
+            Markeer banktransacties als verbouwing-uitgave of als niet relevant.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-ghost px-3 py-1.5 text-sm"
+          onClick={syncBanks}
+          disabled={syncingBanks}
+        >
+          <RefreshCw className={`h-4 w-4 ${syncingBanks ? "animate-spin" : ""}`} />
+          {syncingBanks ? "Banken syncen…" : "Sync banken"}
+        </button>
       </div>
 
       {/* Openstaand ↔ Niet relevant */}

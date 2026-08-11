@@ -74,6 +74,37 @@ async function run(): Promise<number> {
   return imported;
 }
 
+/**
+ * Handmatige "sync alles"-actie: synct álle actieve koppelingen, zonder de
+ * throttles van de automatische variant (de gebruiker vraagt er expliciet om).
+ * Telt wel mee in het daglimiet-budget van de bank — de knop is er voor "ik heb
+ * nét gepind", niet om op te blijven rammen. Gooit een Error als de
+ * koppelingen-lijst niet geladen kan worden.
+ */
+export async function syncAllBanksNow(): Promise<{ imported: number; failed: number }> {
+  if (!supabase) throw new Error("Supabase client niet geconfigureerd");
+  const { data, error } = await supabase
+    .from("bank_connections")
+    .select("requisition_id")
+    .eq("status", "active");
+  if (error) throw new Error(error.message);
+
+  let imported = 0;
+  let failed = 0;
+  for (const conn of data ?? []) {
+    const { data: result, error: syncError } = await supabase.functions.invoke("bank-sync", {
+      body: { requisition_id: conn.requisition_id },
+    });
+    if (syncError) failed += 1;
+    else if (typeof result?.imported === "number") imported += result.imported;
+  }
+
+  if (imported > 0) {
+    window.dispatchEvent(new CustomEvent(BANK_AUTO_SYNCED_EVENT, { detail: { imported } }));
+  }
+  return { imported, failed };
+}
+
 /** Start bij mount één auto-sync-poging; meldt het aantal nieuwe transacties. */
 export function useBankAutoSync(onImported?: (imported: number) => void) {
   const onImportedRef = useRef(onImported);
