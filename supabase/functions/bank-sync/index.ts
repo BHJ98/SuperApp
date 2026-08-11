@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    const { requisition_id, code, days } = await req.json()
+    const { requisition_id, code, days, attended } = await req.json()
     if (!requisition_id)
       return Response.json({ error: 'Missing requisition_id' }, { status: 400, headers: corsHeaders })
     requisitionId = requisition_id
@@ -53,6 +53,20 @@ Deno.serve(async (req) => {
     // history (capped at a year — PSD2 consent covers this, availability
     // depends on the bank).
     const lookbackDays = Math.min(Math.max(Number(days) || 90, 1), 366)
+
+    // PSD2 attended/unattended: alleen als de sync het directe gevolg is van
+    // een gebruikersactie (knop, na de bank-redirect) stuurt de client
+    // attended=true mee. Dan geven we het IP en de user-agent van de gebruiker
+    // als PSU-headers door aan Enable Banking → de bank, zodat de aanvraag als
+    // "beheerd" telt en niet in het 4-per-dag-budget valt. Automatische syncs
+    // sturen dit bewust NIET mee (headers vervalsen mag niet).
+    const psuHeaders: Record<string, string> = {}
+    if (attended === true) {
+      const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim()
+      const ua = req.headers.get('user-agent') ?? ''
+      if (ip) psuHeaders['Psu-Ip-Address'] = ip
+      if (ua) psuHeaders['Psu-User-Agent'] = ua
+    }
 
     // Load connection and verify it belongs to the caller's household — the
     // requisition id travels through browser URLs and must not grant access
@@ -81,6 +95,7 @@ Deno.serve(async (req) => {
       const session = await ebFetch('/sessions', {
         method: 'POST',
         body: JSON.stringify({ code }),
+        headers: psuHeaders,
       })
       sessionId = session.session_id as string
       accountUids = (session.accounts ?? []).map((a: any) =>
@@ -92,7 +107,7 @@ Deno.serve(async (req) => {
     } else {
       let session: any
       try {
-        session = await ebFetch(`/sessions/${sessionId}`)
+        session = await ebFetch(`/sessions/${sessionId}`, { headers: psuHeaders })
       } catch {
         await adminClient.from('bank_connections')
           .update({ status: 'expired' }).eq('requisition_id', requisition_id)
@@ -135,7 +150,7 @@ Deno.serve(async (req) => {
     for (const uid of accountUids) {
       let iban: string | null = null
       try {
-        const details = await ebFetch(`/accounts/${uid}/details`)
+        const details = await ebFetch(`/accounts/${uid}/details`, { headers: psuHeaders })
         iban = details?.account_id?.iban ?? details?.iban ?? null
       } catch { /* fall through */ }
       if (!iban && accountUids.length === 1) iban = conn.iban ?? null
@@ -192,7 +207,7 @@ Deno.serve(async (req) => {
       do {
         const qs = new URLSearchParams({ date_from: dateFromStr })
         if (continuation) qs.set('continuation_key', continuation)
-        const page = await ebFetch(`/accounts/${uid}/transactions?${qs}`)
+        const page = await ebFetch(`/accounts/${uid}/transactions?${qs}`, { headers: psuHeaders })
         txs.push(...(page?.transactions ?? []))
         continuation = page?.continuation_key ?? null
         pages++

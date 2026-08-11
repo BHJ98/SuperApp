@@ -108,8 +108,10 @@ export default function BankSyncPage() {
     setSyncing(requisition_id)
     if (afterRedirect) toast('Bank verbonden! Transacties worden geladen…')
 
+    // attended: alle syncs op deze pagina zijn directe gebruikersacties (knop
+    // of terugkeer uit de bank-flow) → PSU-headers mee, telt als "beheerd".
     const { data, error } = await supabase.functions.invoke('bank-sync', {
-      body: { requisition_id, code, days },
+      body: { requisition_id, code, days, attended: true },
     })
     setSyncing(null)
 

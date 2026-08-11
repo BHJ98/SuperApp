@@ -92,8 +92,10 @@ export async function syncAllBanksNow(): Promise<{ imported: number; failed: num
   let imported = 0;
   let failed = 0;
   for (const conn of data ?? []) {
+    // attended: dit is een expliciete gebruikersactie → telt bij de bank als
+    // "beheerde" aanvraag (PSU-headers) en valt buiten het 4-per-dag-budget.
     const { data: result, error: syncError } = await supabase.functions.invoke("bank-sync", {
-      body: { requisition_id: conn.requisition_id },
+      body: { requisition_id: conn.requisition_id, attended: true },
     });
     if (syncError) failed += 1;
     else if (typeof result?.imported === "number") imported += result.imported;
