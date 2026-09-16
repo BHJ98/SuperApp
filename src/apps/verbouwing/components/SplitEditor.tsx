@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { LoaderCircle, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Divide, LoaderCircle, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { Category, EditablePart, RoomOption } from "../types";
 import { parseReceipt } from "../lib/data";
 import { formatCurrency, parseAmount } from "../lib/format";
-import { validateParts } from "../lib/split";
+import { splitEvenly, validateParts } from "../lib/split";
 
 export function newEditablePart(overrides: Partial<EditablePart> = {}): EditablePart {
   return {
@@ -69,6 +69,13 @@ export default function SplitEditor({
 
   function addPart() {
     onPartsChange([...parts, newEditablePart()]);
+  }
+
+  /** Verdeelt het totaal gelijk over alle regels (ruimtes/categorieën blijven staan). */
+  function distributeEvenly() {
+    if (total === null || parts.length === 0) return;
+    const amounts = splitEvenly(total, parts.length);
+    onPartsChange(parts.map((p, i) => ({ ...p, amount: amounts[i].toFixed(2) })));
   }
 
   // ---- AI-bonuitlezing: uitsluitend hier en uitsluitend op klik ----
@@ -223,10 +230,28 @@ export default function SplitEditor({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={addPart}>
-          <Plus className="h-4 w-4" />
-          Regel toevoegen
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={addPart}>
+            <Plus className="h-4 w-4" />
+            Regel toevoegen
+          </button>
+          {parts.length >= 2 && (
+            <button
+              type="button"
+              className="btn-ghost px-3 py-1.5 text-sm"
+              onClick={distributeEvenly}
+              disabled={total === null}
+              title={
+                total === null
+                  ? "Vul eerst een geldig totaalbedrag in"
+                  : `Verdeel ${formatCurrency(total)} gelijk over ${parts.length} regels`
+              }
+            >
+              <Divide className="h-4 w-4" />
+              Gelijk verdelen
+            </button>
+          )}
+        </div>
         {validation && (
           <span
             className={`text-sm font-medium ${

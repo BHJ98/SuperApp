@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { round2, validateParts } from "./split";
+import { round2, splitEvenly, validateParts } from "./split";
+
+describe("splitEvenly", () => {
+  it("verdeelt exact deelbare bedragen gelijk", () => {
+    expect(splitEvenly(300, 3)).toEqual([100, 100, 100]);
+  });
+
+  it("geeft de restcenten aan de eerste regels zodat de som exact klopt", () => {
+    expect(splitEvenly(100, 3)).toEqual([33.34, 33.33, 33.33]);
+    expect(splitEvenly(313.02, 3)).toEqual([104.34, 104.34, 104.34]);
+    expect(splitEvenly(0.05, 2)).toEqual([0.03, 0.02]);
+  });
+
+  it("levert altijd een splitsing op die validateParts goedkeurt", () => {
+    for (const [total, n] of [[113.02, 3], [99.99, 7], [1, 3], [2500.5, 4]] as const) {
+      const parts = splitEvenly(total, n).map((amount) => ({ amount }));
+      expect(parts).toHaveLength(n);
+      expect(validateParts(total, parts).ok).toBe(true);
+      expect(round2(parts.reduce((s, p) => s + p.amount, 0))).toBe(total);
+    }
+  });
+
+  it("gaat om met negatieve totalen (kortingen)", () => {
+    expect(splitEvenly(-10, 3)).toEqual([-3.34, -3.33, -3.33]);
+  });
+
+  it("geeft een lege lijst bij ongeldige invoer", () => {
+    expect(splitEvenly(NaN, 3)).toEqual([]);
+    expect(splitEvenly(10, 0)).toEqual([]);
+  });
+});
 
 describe("round2", () => {
   it("rondt af op centen", () => {

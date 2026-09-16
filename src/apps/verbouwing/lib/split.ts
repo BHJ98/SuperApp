@@ -29,3 +29,24 @@ export function validateParts(total: number, parts: PartAmount[]): PartsValidati
     Math.abs(remainder) <= 0.01;
   return { ok, remainder };
 }
+
+/**
+ * Verdeelt een totaal gelijk over `count` regels, in hele centen. De centen die
+ * niet deelbaar zijn gaan één voor één naar de eerste regels, zodat de som
+ * altijd exact het totaal is (bijv. 100 / 3 → 33.34, 33.33, 33.33).
+ */
+export function splitEvenly(total: number, count: number): number[] {
+  if (!Number.isFinite(total) || count < 1) return [];
+  const cents = Math.round(total * 100);
+  const base = Math.trunc(cents / count);
+  let remainder = cents - base * count;
+  const step = remainder >= 0 ? 1 : -1;
+  return Array.from({ length: count }, () => {
+    let c = base;
+    if (remainder !== 0) {
+      c += step;
+      remainder -= step;
+    }
+    return c / 100;
+  });
+}
