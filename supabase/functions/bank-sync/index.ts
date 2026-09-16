@@ -108,22 +108,37 @@ Deno.serve(async (req) => {
       let session: any
       try {
         session = await ebFetch(`/sessions/${sessionId}`, { headers: psuHeaders })
-      } catch {
-        await adminClient.from('bank_connections')
-          .update({ status: 'expired' }).eq('requisition_id', requisition_id)
-        return Response.json(
-          { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired' },
-          { status: 400, headers: corsHeaders },
-        )
+      } catch (err) {
+        // Alleen een échte sessie-fout (404 weg / 401 ongeldig) is "verlopen".
+        // Andere fouten (EB-storing, 5xx, rate limit) zijn tijdelijk en mogen
+        // de koppeling niet stilletjes op 'expired' zetten.
+        const msg = (err as Error).message
+        console.error('bank-sync GET /sessions failed:', msg)
+        if (/Enable Banking (401|404) /.test(msg) || /EXPIRED_SESSION|SESSION_NOT_FOUND/i.test(msg)) {
+          await adminClient.from('bank_connections')
+            .update({ status: 'expired' }).eq('requisition_id', requisition_id)
+          return Response.json(
+            { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired', detail: msg },
+            { status: 400, headers: corsHeaders },
+          )
+        }
+        throw err
       }
-      // EB geeft een verlopen sessie soms gewoon terug (status EXPIRED/CLOSED/
-      // REVOKED); alleen de account-endpoints geven dan 401. Vang het hier al af.
+      // EB geeft een verlopen sessie soms gewoon terug; alleen de account-
+      // endpoints geven dan 401. Vang expliciet beëindigde statussen hier al af
+      // (onbekende statussen laten we door — liever een duidelijke fout verderop
+      // dan een onterecht "verlopen").
       const sessionStatus = String(session?.status ?? '').toUpperCase()
-      if (sessionStatus && sessionStatus !== 'AUTHORIZED') {
+      console.log('bank-sync session status:', sessionStatus || '(geen)', 'valid_until:', session?.access?.valid_until ?? '(onbekend)')
+      if (['EXPIRED', 'CLOSED', 'REVOKED', 'CANCELLED', 'INVALID'].includes(sessionStatus)) {
         await adminClient.from('bank_connections')
           .update({ status: 'expired' }).eq('requisition_id', requisition_id)
         return Response.json(
-          { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired' },
+          {
+            error: 'Sessie verlopen — koppel de bank opnieuw',
+            status: 'expired',
+            detail: `Enable Banking sessiestatus: ${sessionStatus}`,
+          },
           { status: 400, headers: corsHeaders },
         )
       }
@@ -287,11 +302,12 @@ Deno.serve(async (req) => {
     )
   } catch (err) {
     const msg = (err as Error).message
+    console.error('bank-sync failed:', msg)
     if (adminClient && requisitionId && msg.includes('EXPIRED_SESSION')) {
       await adminClient.from('bank_connections')
         .update({ status: 'expired' }).eq('requisition_id', requisitionId)
       return Response.json(
-        { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired' },
+        { error: 'Sessie verlopen — koppel de bank opnieuw', status: 'expired', detail: msg },
         { status: 400, headers: corsHeaders },
       )
     }

@@ -20,7 +20,13 @@ async function invokeErrorMessage(error: unknown): Promise<string> {
   if (error instanceof FunctionsHttpError) {
     try {
       const body = await error.context.json()
-      if (body && typeof body.error === 'string') return body.error
+      if (body && typeof body.error === 'string') {
+        // `detail` = de onderliggende Enable Banking-reden (bijv. waarom een
+        // sessie als verlopen is aangemerkt) — onmisbaar bij het uitzoeken van
+        // te vroeg verlopen machtigingen.
+        const detail = typeof body.detail === 'string' ? body.detail.slice(0, 200) : ''
+        return detail ? `${body.error} (${detail})` : body.error
+      }
     } catch { /* body geen JSON — val terug op de generieke melding */ }
   }
   return error instanceof Error ? error.message : 'Onbekende fout'
