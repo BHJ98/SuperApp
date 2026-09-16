@@ -25,6 +25,8 @@ export default function Uitgaven() {
   const [filterRoomId, setFilterRoomId] = useState("");
   // "" = alle, "__none" = zonder categorie, anders een category-id.
   const [filterCategoryId, setFilterCategoryId] = useState("");
+  // "" = alle, "missing" = zonder bon, "present" = met bon.
+  const [filterReceipt, setFilterReceipt] = useState<"" | "missing" | "present">("");
   const [search, setSearch] = useState("");
 
   // Drawer: bewerken (expense gezet) of nieuwe handmatige uitgave (open zonder expense)
@@ -69,7 +71,7 @@ export default function Uitgaven() {
     return map;
   }, [categories]);
 
-  // Filter op ruimte (inclusief subdelen), categorie en/of zoekterm.
+  // Filter op ruimte (inclusief subdelen), categorie, bon-status en/of zoekterm.
   const filtered = useMemo(() => {
     let result = expenses;
     if (filterRoomId) {
@@ -83,6 +85,11 @@ export default function Uitgaven() {
             ? !p.category_id
             : p.category_id === filterCategoryId,
         ),
+      );
+    }
+    if (filterReceipt) {
+      result = result.filter((e) =>
+        filterReceipt === "missing" ? e.receipts.length === 0 : e.receipts.length > 0,
       );
     }
     const q = search.trim().toLowerCase();
@@ -105,9 +112,22 @@ export default function Uitgaven() {
       });
     }
     return result;
-  }, [expenses, rooms, filterRoomId, filterCategoryId, search, roomNameById, categoryNameById]);
+  }, [
+    expenses,
+    rooms,
+    filterRoomId,
+    filterCategoryId,
+    filterReceipt,
+    search,
+    roomNameById,
+    categoryNameById,
+  ]);
 
   const totalShown = filtered.reduce((sum, e) => sum + e.total_amount, 0);
+  const missingReceiptCount = useMemo(
+    () => expenses.filter((e) => e.receipts.length === 0).length,
+    [expenses],
+  );
 
   function openEdit(expense: ExpenseWithDetails) {
     setEditingExpense(expense);
@@ -127,6 +147,21 @@ export default function Uitgaven() {
           <p className="mt-1 text-sm text-muted">
             {filtered.length} uitgave{filtered.length !== 1 ? "n" : ""} ·{" "}
             {formatCurrency(totalShown)}
+            {missingReceiptCount > 0 && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className="underline decoration-dotted underline-offset-2 transition hover:text-ink"
+                  onClick={() =>
+                    setFilterReceipt((v) => (v === "missing" ? "" : "missing"))
+                  }
+                  title="Toon alleen uitgaven zonder bon"
+                >
+                  {missingReceiptCount} zonder bon
+                </button>
+              </>
+            )}
           </p>
         </div>
         <button className="btn-primary" onClick={openNew}>
@@ -184,6 +219,18 @@ export default function Uitgaven() {
             </select>
           </div>
         )}
+        <div className="w-full max-w-[12rem]">
+          <label className="label">Bon</label>
+          <select
+            className="input"
+            value={filterReceipt}
+            onChange={(e) => setFilterReceipt(e.target.value as "" | "missing" | "present")}
+          >
+            <option value="">Alle</option>
+            <option value="missing">Zonder bon</option>
+            <option value="present">Met bon</option>
+          </select>
+        </div>
       </div>
 
       <div className="card !p-0 overflow-hidden">
@@ -202,7 +249,7 @@ export default function Uitgaven() {
           <div className="py-12 text-center">
             <Receipt className="mx-auto mb-3 h-10 w-10 text-faint" />
             <p className="text-sm text-muted">
-              {filterRoomId || filterCategoryId || search.trim()
+              {filterRoomId || filterCategoryId || filterReceipt || search.trim()
                 ? "Geen uitgaven voor dit filter."
                 : "Nog geen uitgaven. Beoordeel banktransacties of voeg een handmatige uitgave toe."}
             </p>
@@ -257,6 +304,16 @@ export default function Uitgaven() {
                         </span>
                       )}
                       {!e.transaction_id && <span className="chip">Handmatig</span>}
+                      {e.receipts.length === 0 && (
+                        <span
+                          className="chip inline-flex items-center gap-1"
+                          style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                          title="Nog geen bon of factuur toegevoegd"
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          Geen bon
+                        </span>
+                      )}
                     </div>
                   </div>
                   {e.receipts.length > 0 && (
