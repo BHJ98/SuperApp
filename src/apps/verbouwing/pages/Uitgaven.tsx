@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Paperclip, Plus, Receipt, Search, Split, Tag } from "lucide-react";
-import type { Category, ExpenseWithDetails, Room } from "../types";
+import type { BankAccountOption, Category, ExpenseWithDetails, Room } from "../types";
 import {
   flattenRooms,
+  listBankAccounts,
   listCategories,
   listExpenses,
   listRooms,
@@ -20,6 +21,7 @@ export default function Uitgaven() {
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<BankAccountOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterRoomId, setFilterRoomId] = useState("");
@@ -27,6 +29,8 @@ export default function Uitgaven() {
   const [filterCategoryId, setFilterCategoryId] = useState("");
   // "" = alle, "missing" = zonder bon, "present" = met bon.
   const [filterReceipt, setFilterReceipt] = useState<"" | "missing" | "present">("");
+  // "" = alle, "__manual" = handmatig (geen rekening), anders een public.accounts.id.
+  const [filterAccountId, setFilterAccountId] = useState("");
   const [search, setSearch] = useState("");
 
   // Drawer: bewerken (expense gezet) of nieuwe handmatige uitgave (open zonder expense)
@@ -35,10 +39,16 @@ export default function Uitgaven() {
 
   const load = useCallback(async () => {
     try {
-      const [e, r, c] = await Promise.all([listExpenses(), listRooms(), listCategories()]);
+      const [e, r, c, a] = await Promise.all([
+        listExpenses(),
+        listRooms(),
+        listCategories(),
+        listBankAccounts(),
+      ]);
       setExpenses(e);
       setRooms(r);
       setCategories(c);
+      setAccounts(a);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kon uitgaven niet laden");
@@ -71,7 +81,12 @@ export default function Uitgaven() {
     return map;
   }, [categories]);
 
-  // Filter op ruimte (inclusief subdelen), categorie, bon-status en/of zoekterm.
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a.name])),
+    [accounts],
+  );
+
+  // Filter op ruimte (inclusief subdelen), categorie, bon-status, rekening en/of zoekterm.
   const filtered = useMemo(() => {
     let result = expenses;
     if (filterRoomId) {
@@ -90,6 +105,11 @@ export default function Uitgaven() {
     if (filterReceipt) {
       result = result.filter((e) =>
         filterReceipt === "missing" ? e.receipts.length === 0 : e.receipts.length > 0,
+      );
+    }
+    if (filterAccountId) {
+      result = result.filter((e) =>
+        filterAccountId === "__manual" ? !e.transaction_id : e.account_id === filterAccountId,
       );
     }
     const q = search.trim().toLowerCase();
@@ -118,6 +138,7 @@ export default function Uitgaven() {
     filterRoomId,
     filterCategoryId,
     filterReceipt,
+    filterAccountId,
     search,
     roomNameById,
     categoryNameById,
@@ -231,6 +252,25 @@ export default function Uitgaven() {
             <option value="present">Met bon</option>
           </select>
         </div>
+        {accounts.length > 0 && (
+          <div className="w-full max-w-xs">
+            <label className="label">Rekening</label>
+            <select
+              className="input"
+              value={filterAccountId}
+              onChange={(e) => setFilterAccountId(e.target.value)}
+            >
+              <option value="">Alle rekeningen</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.iban ? ` (••••${a.iban.slice(-4)})` : ""}
+                </option>
+              ))}
+              <option value="__manual">Handmatig (geen rekening)</option>
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="card !p-0 overflow-hidden">
@@ -249,7 +289,7 @@ export default function Uitgaven() {
           <div className="py-12 text-center">
             <Receipt className="mx-auto mb-3 h-10 w-10 text-faint" />
             <p className="text-sm text-muted">
-              {filterRoomId || filterCategoryId || filterReceipt || search.trim()
+              {filterRoomId || filterCategoryId || filterReceipt || filterAccountId || search.trim()
                 ? "Geen uitgaven voor dit filter."
                 : "Nog geen uitgaven. Beoordeel banktransacties of voeg een handmatige uitgave toe."}
             </p>
@@ -304,6 +344,11 @@ export default function Uitgaven() {
                         </span>
                       )}
                       {!e.transaction_id && <span className="chip">Handmatig</span>}
+                      {accounts.length > 1 && !filterAccountId && e.account_id && (
+                        <span className="chip">
+                          {accountNameById.get(e.account_id) ?? "Onbekende rekening"}
+                        </span>
+                      )}
                       {e.receipts.length === 0 && (
                         <span
                           className="chip inline-flex items-center gap-1"

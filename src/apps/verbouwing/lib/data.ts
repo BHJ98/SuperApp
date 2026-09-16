@@ -182,7 +182,29 @@ export async function listExpenses(): Promise<ExpenseWithDetails[]> {
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as ExpenseWithDetails[];
+  const expenses = (data ?? []) as Omit<ExpenseWithDetails, "account_id">[];
+
+  // Rekening van de gekoppelde banktransactie erbij zoeken (public-schema, dus
+  // niet via een embed maar in brokken op id — zelfde aanpak als de inbox).
+  const txIds = Array.from(
+    new Set(expenses.map((e) => e.transaction_id).filter((id): id is string => !!id)),
+  );
+  const accountByTx = new Map<string, string | null>();
+  for (let i = 0; i < txIds.length; i += 200) {
+    const { data: txs, error: txError } = await pdb()
+      .from("transactions")
+      .select("id, account_id")
+      .in("id", txIds.slice(i, i + 200));
+    if (txError) throw new Error(txError.message);
+    for (const t of (txs ?? []) as { id: string; account_id: string | null }[]) {
+      accountByTx.set(t.id, t.account_id);
+    }
+  }
+
+  return expenses.map((e) => ({
+    ...e,
+    account_id: e.transaction_id ? accountByTx.get(e.transaction_id) ?? null : null,
+  }));
 }
 
 export type NewExpense = {

@@ -58,6 +58,8 @@ export type Receipt = {
 export type ExpenseWithDetails = Expense & {
   expense_parts: ExpensePart[];
   receipts: Receipt[];
+  /** Finance-rekening van de gekoppelde banktransactie; null bij handmatige uitgaven. */
+  account_id: string | null;
 };
 
 /** Banktransactie zoals de beoordelen-inbox hem toont (public.transactions). */
