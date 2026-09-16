@@ -67,6 +67,15 @@ export type InboxTransaction = {
   amount: number;
   description: string;
   counterparty_name: string | null;
+  /** Finance-rekening (public.accounts) waar de transactie op staat. */
+  account_id: string | null;
+};
+
+/** Bankrekening uit Finance (public.accounts) voor het rekeningfilter in de inbox. */
+export type BankAccountOption = {
+  id: string;
+  name: string;
+  iban: string | null;
 };
 
 /** Antwoord van /api/parse-receipt. `category` is de door de AI voorgestelde

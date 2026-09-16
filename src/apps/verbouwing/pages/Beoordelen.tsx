@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inbox, LoaderCircle, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { syncAllBanksNow, useBankSyncRefresh } from "@/lib/bankAutoSync";
 import { useToast } from "@/lib/toast";
-import type { InboxTransaction, Room } from "../types";
+import type { BankAccountOption, InboxTransaction, Room } from "../types";
 import {
   dismissTransactions,
   fetchInboxPage,
+  listBankAccounts,
   listDismissedTransactions,
   listExcludedTransactionIds,
   listRooms,
@@ -35,6 +36,9 @@ export default function Beoordelen() {
   const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Rekeningfilter: "" = alle rekeningen, anders een public.accounts.id.
+  const [accounts, setAccounts] = useState<BankAccountOption[]>([]);
+  const [filterAccountId, setFilterAccountId] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
 
   // "Niet relevant"-lijst
@@ -57,19 +61,21 @@ export default function Beoordelen() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadFirstPage = useCallback(async (search: string) => {
+  const loadFirstPage = useCallback(async (search: string, accountId: string) => {
     const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
-      const [excluded, roomList] = await Promise.all([
+      const [excluded, roomList, accountList] = await Promise.all([
         listExcludedTransactionIds(),
         listRooms(),
+        listBankAccounts(),
       ]);
       if (seq !== requestSeq.current) return;
       excludedRef.current = excluded;
       setRooms(roomList);
-      const page = await fetchInboxPage({ search, serverOffset: 0, excluded });
+      setAccounts(accountList);
+      const page = await fetchInboxPage({ search, serverOffset: 0, excluded, accountId });
       if (seq !== requestSeq.current) return;
       serverOffsetRef.current = page.nextServerOffset;
       setRows(page.rows);
@@ -85,8 +91,8 @@ export default function Beoordelen() {
   }, []);
 
   useEffect(() => {
-    loadFirstPage(debouncedSearch);
-  }, [debouncedSearch, loadFirstPage]);
+    loadFirstPage(debouncedSearch, filterAccountId);
+  }, [debouncedSearch, filterAccountId, loadFirstPage]);
 
   const loadDismissed = useCallback(async () => {
     setDismissedLoading(true);
@@ -107,9 +113,9 @@ export default function Beoordelen() {
   // Live meebewegen met wijzigingen elders (ander toestell, andere tab): houdt
   // de excluded-set vers en corrigeert de inbox. Gedebounced tegen event-storms.
   const refreshActiveView = useCallback(() => {
-    if (view === "open") loadFirstPage(debouncedSearch);
+    if (view === "open") loadFirstPage(debouncedSearch, filterAccountId);
     else loadDismissed();
-  }, [view, debouncedSearch, loadFirstPage, loadDismissed]);
+  }, [view, debouncedSearch, filterAccountId, loadFirstPage, loadDismissed]);
   const debouncedRefresh = useDebouncedCallback(refreshActiveView);
 
   useEffect(() => {
@@ -157,6 +163,7 @@ export default function Beoordelen() {
         search: debouncedSearch,
         serverOffset: serverOffsetRef.current,
         excluded: excludedRef.current,
+        accountId: filterAccountId,
       });
       serverOffsetRef.current = page.nextServerOffset;
       setRows((prev) => [...prev, ...page.rows]);
@@ -257,6 +264,7 @@ export default function Beoordelen() {
           serverOffset: offset,
           excluded: excludedRef.current,
           pageSize: 200,
+          accountId: filterAccountId,
         });
         for (const t of page.rows) ids.push(t.id);
         offset = page.nextServerOffset;
@@ -268,8 +276,8 @@ export default function Beoordelen() {
       }
       if (
         !confirm(
-          `${ids.length} transactie${ids.length !== 1 ? "s" : ""} die aan de zoekopdracht ` +
-            `voldoen als niet relevant markeren?`,
+          `${ids.length} transactie${ids.length !== 1 ? "s" : ""} die aan het huidige ` +
+            `filter voldoen als niet relevant markeren?`,
         )
       ) {
         return;
@@ -279,7 +287,7 @@ export default function Beoordelen() {
       }
       ids.forEach((id) => excludedRef.current.add(id));
       toast(`${ids.length} transacties gemarkeerd als niet relevant`);
-      await loadFirstPage(debouncedSearch);
+      await loadFirstPage(debouncedSearch, filterAccountId);
     } catch (err) {
       toast(err instanceof Error ? err.message : "Kon niet opslaan", "error");
     } finally {
@@ -311,6 +319,10 @@ export default function Beoordelen() {
   }
 
   const allSelected = rows.length > 0 && rows.every((t) => selectedIds.has(t.id));
+  const accountNameById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a.name])),
+    [accounts],
+  );
 
   return (
     <div>
@@ -395,15 +407,33 @@ export default function Beoordelen() {
         </div>
       ) : (
         <>
-      {/* Zoekbalk */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-3.5 h-4 w-4 text-faint" />
-        <input
-          className="input pl-9"
-          placeholder="Zoek op omschrijving of tegenpartij…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Zoekbalk + rekeningfilter */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <div className="relative min-w-0 flex-1 basis-64">
+          <Search className="absolute left-3 top-3.5 h-4 w-4 text-faint" />
+          <input
+            className="input pl-9"
+            placeholder="Zoek op omschrijving of tegenpartij…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        {accounts.length > 1 && (
+          <select
+            className="input w-full basis-56 sm:w-auto"
+            value={filterAccountId}
+            onChange={(e) => setFilterAccountId(e.target.value)}
+            aria-label="Filter op bankrekening"
+          >
+            <option value="">Alle rekeningen</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+                {a.iban ? ` (••••${a.iban.slice(-4)})` : ""}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Bulk-acties */}
@@ -447,7 +477,9 @@ export default function Beoordelen() {
               disabled={bulkBusy}
             >
               {bulkBusy && <LoaderCircle className="h-4 w-4 animate-spin" />}
-              {debouncedSearch ? "Alles wat matcht niet relevant" : "Alles niet relevant"}
+              {debouncedSearch || filterAccountId
+                ? "Alles wat matcht niet relevant"
+                : "Alles niet relevant"}
             </button>
           </>
         )}
@@ -462,7 +494,7 @@ export default function Beoordelen() {
         ) : error ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12">
             <p className="text-sm text-muted">{error}</p>
-            <button className="btn-ghost" onClick={() => loadFirstPage(debouncedSearch)}>
+            <button className="btn-ghost" onClick={() => loadFirstPage(debouncedSearch, filterAccountId)}>
               Opnieuw proberen
             </button>
           </div>
@@ -470,8 +502,8 @@ export default function Beoordelen() {
           <div className="py-12 text-center">
             <Inbox className="mx-auto mb-3 h-10 w-10 text-faint" />
             <p className="text-sm text-muted">
-              {debouncedSearch
-                ? "Geen onbeoordeelde transacties gevonden voor deze zoekopdracht."
+              {debouncedSearch || filterAccountId
+                ? "Geen onbeoordeelde transacties gevonden voor dit filter."
                 : "Alles is beoordeeld — geen openstaande transacties."}
             </p>
           </div>
@@ -525,6 +557,11 @@ export default function Beoordelen() {
                     </p>
                     {t.counterparty_name && (
                       <p className="truncate text-xs text-muted">{t.description}</p>
+                    )}
+                    {accounts.length > 1 && !filterAccountId && t.account_id && (
+                      <span className="chip mt-1 inline-block">
+                        {accountNameById.get(t.account_id) ?? "Onbekende rekening"}
+                      </span>
                     )}
                   </div>
                   <span className="font-mono text-sm text-danger">

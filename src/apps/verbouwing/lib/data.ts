@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type {
+  BankAccountOption,
   Category,
   Expense,
   ExpenseWithDetails,
@@ -308,7 +309,7 @@ export async function listDismissedTransactions(): Promise<InboxTransaction[]> {
     const chunk = ids.slice(i, i + 200);
     const { data, error: txError } = await pdb()
       .from("transactions")
-      .select("id, date, amount, description, counterparty_name")
+      .select("id, date, amount, description, counterparty_name, account_id")
       .in("id", chunk);
     if (txError) throw new Error(txError.message);
     for (const t of (data ?? []) as InboxTransaction[]) byId.set(t.id, t);
@@ -344,6 +345,16 @@ export async function listExcludedTransactionIds(): Promise<Set<string>> {
 
 const INBOX_SERVER_CHUNK = 100;
 
+/** Finance-rekeningen van het huishouden, voor het rekeningfilter in de inbox. */
+export async function listBankAccounts(): Promise<BankAccountOption[]> {
+  const { data, error } = await pdb()
+    .from("accounts")
+    .select("id, name, iban")
+    .order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as BankAccountOption[];
+}
+
 export type InboxPage = {
   rows: InboxTransaction[];
   /** Server-offset om vanaf verder te laden (niet gelijk aan rows.length!). */
@@ -365,6 +376,8 @@ export async function fetchInboxPage(opts: {
   serverOffset: number;
   excluded: Set<string>;
   pageSize?: number;
+  /** Beperk tot één Finance-rekening (public.accounts.id); leeg = alle. */
+  accountId?: string;
 }): Promise<InboxPage> {
   const pageSize = opts.pageSize ?? 50;
   const rows: InboxTransaction[] = [];
@@ -374,13 +387,15 @@ export async function fetchInboxPage(opts: {
   while (rows.length < pageSize && hasMore) {
     let query = pdb()
       .from("transactions")
-      .select("id, date, amount, description, counterparty_name")
+      .select("id, date, amount, description, counterparty_name, account_id")
       .lt("amount", 0)
       .eq("is_transfer", false)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .range(offset, offset + INBOX_SERVER_CHUNK - 1);
+
+    if (opts.accountId) query = query.eq("account_id", opts.accountId);
 
     // Zelfde sanitering als Finance Transactions, plus komma's/haakjes die de
     // .or()-filtersyntax zouden breken.
