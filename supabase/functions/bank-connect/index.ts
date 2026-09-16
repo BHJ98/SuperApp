@@ -31,15 +31,40 @@ Deno.serve(async (req) => {
     if (!profile?.household_id)
       return Response.json({ error: 'No household found' }, { status: 400, headers: corsHeaders })
 
-    const { institution_id, redirect_url, account_id } = await req.json()
-    if (!institution_id || !redirect_url)
-      return Response.json({ error: 'Missing institution_id or redirect_url' }, { status: 400, headers: corsHeaders })
+    const { institution_id, redirect_url, account_id, reauth_requisition_id, country } = await req.json()
+    if (!redirect_url)
+      return Response.json({ error: 'Missing redirect_url' }, { status: 400, headers: corsHeaders })
 
-    const [aspspName, aspspCountry] = String(institution_id).split('|')
-    if (!aspspName || !aspspCountry)
-      return Response.json({ error: 'Invalid institution_id' }, { status: 400, headers: corsHeaders })
+    let aspspName: string
+    let aspspCountry: string
+    let state: string
 
-    const state = crypto.randomUUID()
+    if (reauth_requisition_id) {
+      // Opnieuw machtigen binnen een bestaande koppeling: hergebruik de rij
+      // (en dus de state) zodat er geen tweede kaart ontstaat. Banken als
+      // Rabobank staan één machtiging per rekening per app toe — een losse
+      // nieuwe koppeling voor dezelfde rekening trekt de vorige in.
+      const { data: existing } = await adminClient
+        .from('bank_connections')
+        .select('requisition_id, institution_name, household_id')
+        .eq('requisition_id', reauth_requisition_id)
+        .single()
+      if (!existing || existing.household_id !== profile.household_id)
+        return Response.json({ error: 'Connection not found' }, { status: 404, headers: corsHeaders })
+      aspspName = existing.institution_name
+      aspspCountry = String(country || 'NL')
+      state = existing.requisition_id
+    } else {
+      if (!institution_id)
+        return Response.json({ error: 'Missing institution_id' }, { status: 400, headers: corsHeaders })
+      const parts = String(institution_id).split('|')
+      if (!parts[0] || !parts[1])
+        return Response.json({ error: 'Invalid institution_id' }, { status: 400, headers: corsHeaders })
+      aspspName = parts[0]
+      aspspCountry = parts[1]
+      state = crypto.randomUUID()
+    }
+
     // PSD2 account-access consent runs out after 90 days, then reconnect.
     const validUntil = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString()
 
@@ -53,6 +78,16 @@ Deno.serve(async (req) => {
         psu_type: 'personal',
       }),
     })
+
+    if (reauth_requisition_id) {
+      // Oude sessie loslaten: na de redirect wisselt bank-sync de nieuwe code
+      // in en zet de status weer op 'active'. Breekt de gebruiker af, dan toont
+      // de kaart eerlijk "Wacht op autorisatie" en kan hij het opnieuw proberen.
+      await adminClient.from('bank_connections')
+        .update({ session_id: null, status: 'pending' })
+        .eq('requisition_id', state)
+      return Response.json({ link: auth.url, requisition_id: state }, { headers: corsHeaders })
+    }
 
     // Fetch logo for display (best-effort)
     let logo: string | null = null

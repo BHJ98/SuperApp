@@ -6,7 +6,7 @@ import { Button } from '@/apps/finance/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/apps/finance/components/ui/card'
 import { Badge } from '@/apps/finance/components/ui/badge'
 import { useToast } from '@/apps/finance/components/ui/toast'
-import { Building2, Link2, RefreshCw, Trash2, Clock, AlertCircle, ChevronLeft } from 'lucide-react'
+import { Building2, Link2, RefreshCw, Trash2, Clock, AlertCircle, ChevronLeft, KeyRound } from 'lucide-react'
 
 type Institution = { id: string; name: string; logo: string | null }
 
@@ -51,6 +51,9 @@ export default function BankSyncPage() {
   const [loadingInstitutions, setLoadingInstitutions] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  // Gekozen bank die al gekoppeld is: vraag of de bestaande koppeling
+  // vernieuwd moet worden i.p.v. een tweede (overlappende) machtiging te maken.
+  const [dupPrompt, setDupPrompt] = useState<{ institution: Institution; existing: BankConnection } | null>(null)
 
   // Enable Banking redirects back here with ?code=ONE_TIME_CODE&state=OUR_KEY
   const codeParam = searchParams.get('code')
@@ -89,11 +92,12 @@ export default function BankSyncPage() {
     setLoadingInstitutions(false)
   }
 
-  async function connectBank(institution_id: string) {
+  /** Start de bank-flow; `body` is óf een nieuwe koppeling óf een hermachtiging. */
+  async function startAuthorization(body: Record<string, unknown>) {
     setConnecting(true)
     const redirect_url = `${window.location.origin}/finance/bank-sync`
     const { data, error } = await supabase.functions.invoke('bank-connect', {
-      body: { institution_id, redirect_url },
+      body: { ...body, redirect_url },
     })
     if (error || !data?.link) {
       const detail = error ? await invokeErrorMessage(error) : 'Onbekende fout'
@@ -102,6 +106,22 @@ export default function BankSyncPage() {
       return
     }
     window.location.href = data.link
+  }
+
+  function connectBank(institution: Institution) {
+    // Al een koppeling met deze bank? Dan eerst kiezen: vernieuwen of écht
+    // een extra koppeling. Een tweede machtiging voor dezelfde rekening
+    // trekt bij veel banken (o.a. Rabobank) de bestaande stilletjes in.
+    const existing = connections.find((c) => c.institution_name === institution.name)
+    if (existing) {
+      setDupPrompt({ institution, existing })
+      return
+    }
+    startAuthorization({ institution_id: institution.id })
+  }
+
+  function reauthorize(conn: BankConnection) {
+    startAuthorization({ reauth_requisition_id: conn.requisition_id })
   }
 
   async function syncConnection(requisition_id: string, afterRedirect = false, code?: string, days?: number) {
@@ -197,7 +217,7 @@ export default function BankSyncPage() {
                 {institutions.map((inst) => (
                   <button
                     key={inst.id}
-                    onClick={() => connectBank(inst.id)}
+                    onClick={() => connectBank(inst)}
                     disabled={connecting}
                     className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-[var(--accent-finance)] hover:bg-[var(--accent-finance)]/5 transition-all text-left disabled:opacity-50"
                   >
@@ -216,6 +236,61 @@ export default function BankSyncPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Bank al gekoppeld: vernieuwen of toch een extra koppeling? */}
+      {dupPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setDupPrompt(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bank al gekoppeld"
+        >
+          <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-warn" />
+                {dupPrompt.institution.name} is al gekoppeld
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Een tweede machtiging voor dezelfde rekening trekt bij de bank meestal de
+                bestaande in — dan stopt de andere koppeling stilletjes met werken. Vernieuw
+                daarom bij voorkeur de bestaande koppeling; vink in het bankscherm alle
+                rekeningen aan die je wilt syncen.
+              </p>
+              <div className="flex flex-col gap-2 pt-1">
+                <Button
+                  onClick={() => {
+                    const existing = dupPrompt.existing
+                    setDupPrompt(null)
+                    reauthorize(existing)
+                  }}
+                  disabled={connecting}
+                >
+                  <KeyRound className="h-4 w-4 mr-1" />
+                  Bestaande koppeling vernieuwen (aanbevolen)
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const institution = dupPrompt.institution
+                    setDupPrompt(null)
+                    startAuthorization({ institution_id: institution.id })
+                  }}
+                  disabled={connecting}
+                >
+                  Toch een extra koppeling toevoegen
+                </Button>
+                <Button variant="ghost" onClick={() => setDupPrompt(null)}>
+                  Annuleren
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Connected banks */}
@@ -266,15 +341,25 @@ export default function BankSyncPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => syncConnection(conn.requisition_id)}
-                      disabled={syncing === conn.requisition_id}
+                      disabled={syncing === conn.requisition_id || conn.status === 'pending'}
                     >
                       <RefreshCw className={`h-4 w-4 mr-1 ${syncing === conn.requisition_id ? 'animate-spin' : ''}`} />
                       Sync
+                    </Button>
+                    <Button
+                      variant={conn.status === 'active' ? 'ghost' : 'default'}
+                      size="sm"
+                      onClick={() => reauthorize(conn)}
+                      disabled={connecting}
+                      title="Vernieuw de machtiging bij de bank binnen deze koppeling (elke 90 dagen, of als hij verlopen is)"
+                    >
+                      <KeyRound className="h-4 w-4 mr-1" />
+                      Opnieuw machtigen
                     </Button>
                     <Button
                       variant="ghost"
@@ -308,7 +393,8 @@ export default function BankSyncPage() {
       <div className="mt-8 rounded-lg border border-border p-4 text-sm text-muted-foreground space-y-1.5">
         <p className="font-medium text-foreground mb-2">Hoe werkt het?</p>
         <p>• Je bankgegevens worden nooit opgeslagen — wij lezen alleen transacties via de officiële PSD2 Open Banking API</p>
-        <p>• Autorisatie moet elke 90 dagen worden vernieuwd (EU-vereiste)</p>
+        <p>• Koppel elke bank <strong>één keer</strong> en vink in het bankscherm alle rekeningen aan — één koppeling dekt ze allemaal. Een tweede machtiging voor dezelfde rekening trekt bij de bank de vorige in.</p>
+        <p>• Autorisatie moet elke 90 dagen worden vernieuwd (EU-vereiste): gebruik daarvoor "Opnieuw machtigen" op de kaart, niet "Bank koppelen"</p>
         <p>• Transacties worden automatisch gecategoriseerd via je bestaande regels</p>
         <p>• De "Sync" knop haalt de laatste 90 dagen op; duplicaten worden automatisch overgeslagen</p>
       </div>
